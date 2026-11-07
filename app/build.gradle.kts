@@ -49,6 +49,7 @@ dependencies {
     implementation(project(":core:storage"))
     implementation(project(":data:files"))
     implementation(project(":feature:files"))
+    implementation(project(":feature:dualpane"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

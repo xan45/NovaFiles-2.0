@@ -59,6 +59,8 @@ import com.novafiles.core.ui.components.NovaNavTab
 import com.novafiles.core.ui.components.NovaStorageSegmentBar
 import com.novafiles.core.ui.components.StorageSegment
 import com.novafiles.data.files.FileRepositoryImpl
+import com.novafiles.feature.dualpane.DualPaneScreen
+import com.novafiles.feature.dualpane.DualPaneViewModel
 import com.novafiles.feature.files.FilesScreen
 import com.novafiles.feature.files.FilesViewModel
 import java.io.File
@@ -80,10 +82,12 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(ThemeConfig(mode = ThemeMode.DARK, accent = AccentColor.INDIGO))
             }
             val filesViewModel = remember { FilesViewModel(fileRepository) }
+            val dualPaneViewModel = remember { DualPaneViewModel(fileRepository) }
 
             NovaTheme(config = themeConfig) {
                 NovaFilesMainApp(
                     filesViewModel = filesViewModel,
+                    dualPaneViewModel = dualPaneViewModel,
                     themeConfig = themeConfig,
                     onThemeConfigChange = { themeConfig = it }
                 )
@@ -95,12 +99,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun NovaFilesMainApp(
     filesViewModel: FilesViewModel,
+    dualPaneViewModel: DualPaneViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NovaNavTab.HOME) }
     val filesUiState by filesViewModel.uiState.collectAsState()
+    val dualPaneUiState by dualPaneViewModel.uiState.collectAsState()
 
     NovaScaffold(
         modifier = modifier,
@@ -142,6 +148,21 @@ fun NovaFilesMainApp(
                     onSortChange = { sortBy -> filesViewModel.setSortBy(sortBy) },
                     onToggleLayout = { filesViewModel.toggleLayoutMode() },
                     onRetry = { filesViewModel.loadDirectory(filesUiState.currentPath) },
+                    modifier = contentModifier
+                )
+            }
+            NovaNavTab.DUAL -> {
+                DualPaneScreen(
+                    uiState = dualPaneUiState,
+                    onSetActivePane = { dualPaneViewModel.setActivePane(it) },
+                    onFolderClickA = { dualPaneViewModel.loadPaneA(it) },
+                    onFolderClickB = { dualPaneViewModel.loadPaneB(it) },
+                    onToggleSelectA = { dualPaneViewModel.toggleSelectionA(it) },
+                    onToggleSelectB = { dualPaneViewModel.toggleSelectionB(it) },
+                    onCopyAcross = { dualPaneViewModel.copySelectedToOpposingPane() },
+                    onMoveAcross = { dualPaneViewModel.moveSelectedToOpposingPane() },
+                    onSyncPanes = { dualPaneViewModel.syncPanes() },
+                    onSwapPanes = { dualPaneViewModel.swapPanes() },
                     modifier = contentModifier
                 )
             }

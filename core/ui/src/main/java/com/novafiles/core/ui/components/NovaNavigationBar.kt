@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
@@ -35,6 +36,7 @@ import com.novafiles.core.designsystem.theme.NovaTheme
 enum class NovaNavTab(val icon: ImageVector, val label: String) {
     HOME(Icons.Default.Home, "Home"),
     FILES(Icons.Default.Folder, "Files"),
+    DUAL(Icons.Default.SwapHoriz, "Dual"),
     VAULT(Icons.Default.Cloud, "Vault"),
     SETTINGS(Icons.Default.Person, "Settings")
 }
