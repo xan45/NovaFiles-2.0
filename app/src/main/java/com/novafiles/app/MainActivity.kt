@@ -58,12 +58,24 @@ import com.novafiles.core.ui.components.NovaNavigationBar
 import com.novafiles.core.ui.components.NovaNavTab
 import com.novafiles.core.ui.components.NovaStorageSegmentBar
 import com.novafiles.core.ui.components.StorageSegment
+import com.novafiles.core.media.MusicPlaybackManager
 import com.novafiles.data.files.FileRepositoryImpl
 import com.novafiles.feature.dualpane.DualPaneScreen
 import com.novafiles.feature.dualpane.DualPaneViewModel
 import com.novafiles.feature.files.FilesScreen
 import com.novafiles.feature.files.FilesViewModel
+import com.novafiles.feature.gallery.GalleryScreen
+import com.novafiles.feature.music.MusicPlayerScreen
+import com.novafiles.feature.music.MusicPlayerViewModel
+import com.novafiles.feature.music.NovaMiniMusicPlayer
+import com.novafiles.feature.video.VideoPlayerScreen
 import java.io.File
+
+sealed interface ActiveMediaScreen {
+    data class Video(val filePath: String) : ActiveMediaScreen
+    data object Music : ActiveMediaScreen
+    data class Gallery(val album: String? = null) : ActiveMediaScreen
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -83,11 +95,13 @@ class MainActivity : ComponentActivity() {
             }
             val filesViewModel = remember { FilesViewModel(fileRepository) }
             val dualPaneViewModel = remember { DualPaneViewModel(fileRepository) }
+            val musicViewModel = remember { MusicPlayerViewModel(fileRepository) }
 
             NovaTheme(config = themeConfig) {
                 NovaFilesMainApp(
                     filesViewModel = filesViewModel,
                     dualPaneViewModel = dualPaneViewModel,
+                    musicViewModel = musicViewModel,
                     themeConfig = themeConfig,
                     onThemeConfigChange = { themeConfig = it }
                 )
@@ -100,21 +114,58 @@ class MainActivity : ComponentActivity() {
 fun NovaFilesMainApp(
     filesViewModel: FilesViewModel,
     dualPaneViewModel: DualPaneViewModel,
+    musicViewModel: MusicPlayerViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NovaNavTab.HOME) }
+    var activeMediaScreen by remember { mutableStateOf<ActiveMediaScreen?>(null) }
     val filesUiState by filesViewModel.uiState.collectAsState()
     val dualPaneUiState by dualPaneViewModel.uiState.collectAsState()
+    val playbackState by MusicPlaybackManager.state.collectAsState()
+
+    if (activeMediaScreen != null) {
+        when (val screen = activeMediaScreen) {
+            is ActiveMediaScreen.Video -> {
+                VideoPlayerScreen(
+                    videoFilePath = screen.filePath,
+                    onNavigateBack = { activeMediaScreen = null }
+                )
+            }
+            is ActiveMediaScreen.Music -> {
+                MusicPlayerScreen(
+                    viewModel = musicViewModel,
+                    onNavigateBack = { activeMediaScreen = null }
+                )
+            }
+            is ActiveMediaScreen.Gallery -> {
+                GalleryScreen(
+                    onNavigateBack = { activeMediaScreen = null }
+                )
+            }
+            null -> {}
+        }
+        return
+    }
 
     NovaScaffold(
         modifier = modifier,
         bottomBar = {
-            NovaNavigationBar(
-                currentTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
+            Column {
+                if (playbackState.currentTrack != null) {
+                    NovaMiniMusicPlayer(
+                        musicState = playbackState,
+                        onPlayPause = { MusicPlaybackManager.togglePlayPause() },
+                        onNext = { MusicPlaybackManager.skipToNext() },
+                        onClick = { activeMediaScreen = ActiveMediaScreen.Music }
+                    )
+                }
+                NovaNavigationBar(
+                    currentTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
         }
     ) { contentModifier ->
         when (selectedTab) {
@@ -123,15 +174,28 @@ fun NovaFilesMainApp(
                     themeConfig = themeConfig,
                     onThemeConfigChange = onThemeConfigChange,
                     onCategoryClick = { categoryName ->
-                        val targetDir = when (categoryName) {
-                            "Photos" -> File(Environment.getExternalStorageDirectory(), "DCIM").absolutePath
-                            "Videos" -> File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
-                            "Documents" -> File(Environment.getExternalStorageDirectory(), "Documents").absolutePath
-                            "Audio" -> File(Environment.getExternalStorageDirectory(), "Music").absolutePath
-                            else -> Environment.getExternalStorageDirectory().absolutePath
+                        when (categoryName) {
+                            "Photos" -> {
+                                activeMediaScreen = ActiveMediaScreen.Gallery()
+                            }
+                            "Audio" -> {
+                                activeMediaScreen = ActiveMediaScreen.Music
+                            }
+                            "Videos" -> {
+                                val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
+                                filesViewModel.loadDirectory(targetDir)
+                                selectedTab = NovaNavTab.FILES
+                            }
+                            "Documents" -> {
+                                val targetDir = File(Environment.getExternalStorageDirectory(), "Documents").absolutePath
+                                filesViewModel.loadDirectory(targetDir)
+                                selectedTab = NovaNavTab.FILES
+                            }
+                            else -> {
+                                filesViewModel.loadDirectory(Environment.getExternalStorageDirectory().absolutePath)
+                                selectedTab = NovaNavTab.FILES
+                            }
                         }
-                        filesViewModel.loadDirectory(targetDir)
-                        selectedTab = NovaNavTab.FILES
                     },
                     modifier = contentModifier
                 )
@@ -140,7 +204,21 @@ fun NovaFilesMainApp(
                 FilesScreen(
                     uiState = filesUiState,
                     onFolderClick = { folderPath -> filesViewModel.navigateToFolder(folderPath) },
-                    onFileClick = { /* Will be handled by Phase 4 media viewers */ },
+                    onFileClick = { fileItem ->
+                        when (fileItem.fileType) {
+                            FileType.AUDIO -> {
+                                musicViewModel.playTrack(fileItem)
+                                activeMediaScreen = ActiveMediaScreen.Music
+                            }
+                            FileType.VIDEO -> {
+                                activeMediaScreen = ActiveMediaScreen.Video(fileItem.path)
+                            }
+                            FileType.IMAGE -> {
+                                activeMediaScreen = ActiveMediaScreen.Gallery()
+                            }
+                            else -> {}
+                        }
+                    },
                     onNavigateBack = { filesViewModel.navigateUp() },
                     onToggleSelect = { id -> filesViewModel.toggleSelection(id) },
                     onSelectAll = { filesViewModel.selectAll() },

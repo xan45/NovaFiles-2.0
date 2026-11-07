@@ -25,5 +25,14 @@ sealed interface NovaRoute {
     data object Settings : NovaRoute
 
     @Serializable
+    data class Music(val initialPath: String? = null) : NovaRoute
+
+    @Serializable
+    data class Video(val filePath: String) : NovaRoute
+
+    @Serializable
+    data class Gallery(val album: String? = null) : NovaRoute
+
+    @Serializable
     data class MediaViewer(val filePath: String, val mimeType: String? = null) : NovaRoute
 }

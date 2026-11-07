@@ -50,6 +50,10 @@ dependencies {
     implementation(project(":data:files"))
     implementation(project(":feature:files"))
     implementation(project(":feature:dualpane"))
+    implementation(project(":core:media"))
+    implementation(project(":feature:music"))
+    implementation(project(":feature:video"))
+    implementation(project(":feature:gallery"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
