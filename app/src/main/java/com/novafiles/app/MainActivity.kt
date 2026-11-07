@@ -2,9 +2,18 @@ package com.novafiles.app
 
 import android.os.Bundle
 import android.os.Environment
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.novafiles.core.common.FileFormatters
+import com.novafiles.core.storage.StoragePermissionHelper
+import com.novafiles.core.model.StorageStats
+import com.novafiles.feature.settings.SettingsPreferencesRepository
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -95,7 +104,9 @@ sealed interface ActiveScreen {
     data object About : ActiveScreen
 }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
+
+    private val settingsRepo by lazy { SettingsPreferencesRepository(applicationContext) }
 
     private val fileRepository by lazy {
         FileRepositoryImpl(
@@ -107,10 +118,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        MusicPlaybackManager.initialize(applicationContext)
+
         setContent {
-            var themeConfig by remember {
-                mutableStateOf(ThemeConfig(mode = ThemeMode.DARK, accent = AccentColor.INDIGO))
-            }
+            val appSettings by settingsRepo.settings.collectAsState()
+            val themeConfig = appSettings.themeConfig
             var showSplash by remember { mutableStateOf(true) }
             val filesViewModel = remember { FilesViewModel(fileRepository) }
             val dualPaneViewModel = remember { DualPaneViewModel(fileRepository) }
@@ -125,7 +137,8 @@ class MainActivity : ComponentActivity() {
                         dualPaneViewModel = dualPaneViewModel,
                         musicViewModel = musicViewModel,
                         themeConfig = themeConfig,
-                        onThemeConfigChange = { themeConfig = it }
+                        onThemeConfigChange = { settingsRepo.updateThemeConfig(it) },
+                        fileRepository = fileRepository
                     )
                 }
             }
@@ -140,8 +153,72 @@ fun NovaFilesMainApp(
     musicViewModel: MusicPlayerViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
+    fileRepository: FileRepositoryImpl,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var hasPermission by remember {
+        mutableStateOf(StoragePermissionHelper.hasStoragePermission(context))
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = StoragePermissionHelper.hasStoragePermission(context)
+                if (granted != hasPermission) {
+                    hasPermission = granted
+                    if (granted) {
+                        filesViewModel.loadDirectory(filesViewModel.uiState.value.currentPath)
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (!hasPermission) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NovaTheme.colors.background)
+                .statusBarsPadding()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AppLogo(iconSize = 80.dp)
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "Storage Access Required",
+                    style = NovaTheme.typography.title,
+                    color = NovaTheme.colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "NovaFiles requires All Files Access permission to browse, organize, encrypt, and manage storage on your device.",
+                    style = NovaTheme.typography.body,
+                    color = NovaTheme.colors.textSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(28.dp))
+                NovaButton(
+                    text = "Grant Storage Access",
+                    onClick = {
+                        val intent = StoragePermissionHelper.createManageStorageIntent(context)
+                        context.startActivity(intent)
+                    },
+                    variant = NovaButtonVariant.PRIMARY
+                )
+            }
+        }
+        return
+    }
+
     var selectedTab by remember { mutableStateOf(NovaNavTab.HOME) }
     var activeScreen by remember { mutableStateOf<ActiveScreen?>(null) }
     val filesUiState by filesViewModel.uiState.collectAsState()
@@ -237,20 +314,37 @@ fun NovaFilesMainApp(
     ) { contentModifier ->
         when (selectedTab) {
             NovaNavTab.HOME -> {
+                val storageStats by fileRepository.getStorageStats().collectAsState(
+                    initial = StorageStats("Internal Storage", 0L, 0L)
+                )
                 NovaHomeDashboard(
                     themeConfig = themeConfig,
                     onThemeConfigChange = onThemeConfigChange,
+                    storageStats = storageStats,
+                    folders = filesUiState.folders,
+                    recentFiles = filesUiState.files,
+                    onFolderClick = { folderPath ->
+                        filesViewModel.loadDirectory(folderPath)
+                        selectedTab = NovaNavTab.FILES
+                    },
+                    onFileClick = { fileItem ->
+                        when (fileItem.fileType) {
+                            FileType.AUDIO -> {
+                                musicViewModel.playTrack(fileItem)
+                                activeScreen = ActiveScreen.Music
+                            }
+                            FileType.VIDEO -> activeScreen = ActiveScreen.Video(fileItem.path)
+                            FileType.IMAGE -> activeScreen = ActiveScreen.Gallery()
+                            else -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                        }
+                    },
                     onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
                     onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
                     onAboutClick = { activeScreen = ActiveScreen.About },
                     onCategoryClick = { categoryName ->
                         when (categoryName) {
-                            "Photos" -> {
-                                activeScreen = ActiveScreen.Gallery()
-                            }
-                            "Audio" -> {
-                                activeScreen = ActiveScreen.Music
-                            }
+                            "Photos" -> activeScreen = ActiveScreen.Gallery()
+                            "Audio" -> activeScreen = ActiveScreen.Music
                             "Videos" -> {
                                 val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
                                 filesViewModel.loadDirectory(targetDir)
@@ -280,16 +374,10 @@ fun NovaFilesMainApp(
                                 musicViewModel.playTrack(fileItem)
                                 activeScreen = ActiveScreen.Music
                             }
-                            FileType.VIDEO -> {
-                                activeScreen = ActiveScreen.Video(fileItem.path)
-                            }
-                            FileType.IMAGE -> {
-                                activeScreen = ActiveScreen.Gallery()
-                            }
-                            FileType.DOCUMENT -> {
-                                activeScreen = ActiveScreen.TextEditor(fileItem.path)
-                            }
-                            else -> {}
+                            FileType.VIDEO -> activeScreen = ActiveScreen.Video(fileItem.path)
+                            FileType.IMAGE -> activeScreen = ActiveScreen.Gallery()
+                            FileType.DOCUMENT -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            else -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
                         }
                     },
                     onNavigateBack = { filesViewModel.navigateUp() },
@@ -299,6 +387,14 @@ fun NovaFilesMainApp(
                     onSortChange = { sortBy -> filesViewModel.setSortBy(sortBy) },
                     onToggleLayout = { filesViewModel.toggleLayoutMode() },
                     onRetry = { filesViewModel.loadDirectory(filesUiState.currentPath) },
+                    onCopy = { filesViewModel.copySelected() },
+                    onMove = { filesViewModel.moveSelected() },
+                    onPaste = { filesViewModel.pasteClipboard() },
+                    onDelete = { filesViewModel.deleteSelectedFiles() },
+                    onCreateFolder = { name -> filesViewModel.createNewFolder(name) },
+                    onRenameFile = { item, newName -> filesViewModel.renameFile(item, newName) },
+                    onSearchQueryChange = { query -> filesViewModel.setSearchQuery(query) },
+                    onClearClipboard = { filesViewModel.clearClipboard() },
                     modifier = contentModifier
                 )
             }
@@ -341,6 +437,11 @@ fun NovaFilesMainApp(
 fun NovaHomeDashboard(
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
+    storageStats: StorageStats,
+    folders: List<FileItem>,
+    recentFiles: List<FileItem>,
+    onFolderClick: (String) -> Unit,
+    onFileClick: (FileItem) -> Unit,
     onStorageOverviewClick: () -> Unit,
     onCleanUpClick: () -> Unit,
     onCategoryClick: (String) -> Unit,
@@ -408,7 +509,7 @@ fun NovaHomeDashboard(
             }
         }
 
-        // Interactive Theme Selector (for Phase 1 testing across all 18 combinations)
+        // Interactive Theme Selector
         item {
             NovaThemeSelectorCard(
                 themeConfig = themeConfig,
@@ -417,7 +518,7 @@ fun NovaHomeDashboard(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Storage Overview Card (Reference: media_1794034804827_b8bf4514.jpg)
+        // Storage Overview Card (Live Storage Data)
         item {
             NovaCard(
                 modifier = Modifier
@@ -440,7 +541,11 @@ fun NovaHomeDashboard(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "69.8 GB / 512 GB",
+                                text = if (storageStats.totalBytes > 0L) {
+                                    "${FileFormatters.formatBytes(storageStats.usedBytes)} / ${FileFormatters.formatBytes(storageStats.totalBytes)}"
+                                } else {
+                                    "Storage Access Active"
+                                },
                                 style = NovaTheme.typography.captionMedium,
                                 color = NovaTheme.colors.textSecondary
                             )
@@ -456,13 +561,14 @@ fun NovaHomeDashboard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Segmented bar
+                    // Real Segmented Usage Bar
+                    val usedPercent = if (storageStats.totalBytes > 0L) {
+                        (storageStats.usedBytes.toFloat() / storageStats.totalBytes.toFloat()) * 100f
+                    } else 50f
                     NovaStorageSegmentBar(
                         segments = listOf(
-                            StorageSegment(NovaTheme.colors.categoryPhotos, 20.8f),
-                            StorageSegment(NovaTheme.colors.categoryVideos, 29.0f),
-                            StorageSegment(NovaTheme.colors.categoryDocuments, 8.0f),
-                            StorageSegment(NovaTheme.colors.categoryAudio, 12.0f)
+                            StorageSegment(NovaTheme.colors.primary, usedPercent.coerceIn(5f, 95f)),
+                            StorageSegment(NovaTheme.colors.cardBorder, (100f - usedPercent).coerceIn(5f, 95f))
                         )
                     )
                 }
@@ -470,7 +576,7 @@ fun NovaHomeDashboard(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Category Section (Reference: 2x2 Grid)
+        // Category Section
         item {
             Text(
                 text = "Category",
@@ -482,7 +588,7 @@ fun NovaHomeDashboard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 NovaCategoryTile(
                     title = "Photos",
-                    sizeText = "20.8 GB",
+                    sizeText = "Browse",
                     icon = Icons.Default.Image,
                     iconTint = NovaTheme.colors.categoryPhotos,
                     iconBackground = NovaTheme.colors.categoryPhotos.copy(alpha = 0.2f),
@@ -492,7 +598,7 @@ fun NovaHomeDashboard(
                 Spacer(modifier = Modifier.width(12.dp))
                 NovaCategoryTile(
                     title = "Videos",
-                    sizeText = "29 GB",
+                    sizeText = "Browse",
                     icon = Icons.Default.Movie,
                     iconTint = NovaTheme.colors.categoryVideos,
                     iconBackground = NovaTheme.colors.categoryVideos.copy(alpha = 0.2f),
@@ -506,7 +612,7 @@ fun NovaHomeDashboard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 NovaCategoryTile(
                     title = "Documents",
-                    sizeText = "8 GB",
+                    sizeText = "Browse",
                     icon = Icons.Default.Description,
                     iconTint = NovaTheme.colors.categoryDocuments,
                     iconBackground = NovaTheme.colors.categoryDocuments.copy(alpha = 0.2f),
@@ -516,7 +622,7 @@ fun NovaHomeDashboard(
                 Spacer(modifier = Modifier.width(12.dp))
                 NovaCategoryTile(
                     title = "Audio",
-                    sizeText = "12 GB",
+                    sizeText = "Browse",
                     icon = Icons.Default.MusicNote,
                     iconTint = NovaTheme.colors.categoryAudio,
                     iconBackground = NovaTheme.colors.categoryAudio.copy(alpha = 0.2f),
@@ -528,99 +634,60 @@ fun NovaHomeDashboard(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Folders Horizontal List (Reference screen 2)
-        item {
-            Text(
-                text = "Folders",
-                style = NovaTheme.typography.title,
-                color = NovaTheme.colors.textPrimary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+        // Folders Horizontal List (Live Folders)
+        if (folders.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Folders",
+                    style = NovaTheme.typography.title,
+                    color = NovaTheme.colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                NovaFolderCard(
-                    name = "Office Trip",
-                    itemCount = 42,
-                    dateText = "12/01/23",
-                    cardColor = NovaTheme.colors.categoryVideos.copy(alpha = 0.15f),
-                    folderIconColor = NovaTheme.colors.categoryVideos,
-                    isSelected = true,
-                    onClick = {}
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    folders.take(8).forEach { folder ->
+                        NovaFolderCard(
+                            name = folder.name,
+                            itemCount = folder.itemCount ?: 0,
+                            dateText = FileFormatters.formatDate(folder.lastModifiedMs),
+                            cardColor = NovaTheme.colors.surfaceElevated,
+                            folderIconColor = NovaTheme.colors.primary,
+                            isSelected = false,
+                            onClick = { onFolderClick(folder.path) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+
+        // Recent Files Section (Live Files)
+        if (recentFiles.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Files",
+                    style = NovaTheme.typography.title,
+                    color = NovaTheme.colors.textPrimary
                 )
-                NovaFolderCard(
-                    name = "Downloads",
-                    itemCount = 15,
-                    dateText = "06/01/23",
-                    cardColor = NovaTheme.colors.categoryApks.copy(alpha = 0.15f),
-                    folderIconColor = NovaTheme.colors.categoryApks,
-                    isSelected = false,
-                    onClick = {}
-                )
-                NovaFolderCard(
-                    name = "Music Library",
-                    itemCount = 249,
-                    dateText = "18/08/26",
-                    cardColor = NovaTheme.colors.categoryAudio.copy(alpha = 0.15f),
-                    folderIconColor = NovaTheme.colors.categoryAudio,
-                    isSelected = false,
-                    onClick = {}
-                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        // Recent Files Section
-        item {
-            Text(
-                text = "Recent",
-                style = NovaTheme.typography.title,
-                color = NovaTheme.colors.textPrimary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        val recentSampleFiles = listOf(
-            FileItem(
-                id = "1",
-                name = "Design_guidelines.pdf",
-                path = "/storage/emulated/0/Documents/Design_guidelines.pdf",
-                sizeBytes = 2_900_000L,
-                lastModifiedMs = 1679702400000L,
-                fileType = FileType.DOCUMENT
-            ),
-            FileItem(
-                id = "2",
-                name = "IMG_20200408_125418.jpg",
-                path = "/storage/emulated/0/DCIM/Camera/IMG_20200408_125418.jpg",
-                sizeBytes = 2_900_000L,
-                lastModifiedMs = 1679702400000L,
-                fileType = FileType.IMAGE
-            ),
-            FileItem(
-                id = "3",
-                name = "Good Luck, Babe!.mp3",
-                path = "/storage/emulated/0/Music/Good Luck, Babe!.mp3",
-                sizeBytes = 8_400_000L,
-                lastModifiedMs = 1724000000000L,
-                fileType = FileType.AUDIO
-            )
-        )
-
-        items(recentSampleFiles.size) { index ->
-            val file = recentSampleFiles[index]
-            NovaFileRow(
-                item = file,
-                formattedSize = "2.9 MB",
-                formattedDate = "25/03/23",
-                onClick = {},
-                onMenuClick = {}
-            )
+            items(recentFiles.take(6).size) { index ->
+                val file = recentFiles[index]
+                NovaFileRow(
+                    item = file,
+                    formattedSize = FileFormatters.formatBytes(file.sizeBytes),
+                    formattedDate = FileFormatters.formatDate(file.lastModifiedMs),
+                    onClick = { onFileClick(file) },
+                    onMenuClick = {}
+                )
+            }
         }
     }
 }

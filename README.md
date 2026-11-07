@@ -79,12 +79,12 @@ NovaFiles-2.0/
 * **Photo Gallery:** Grid/detail browsing with smooth pinch-to-zoom and rotation.
 
 ### 3. Storage Optimization & Analytics
-* **Storage Analyzer:** Circular usage gauge, multi-segment category allocation bar, large files scanner (>50MB), and trash bin monitor matching the visual reference.
-* **Storage Cleaner:** Automated scans for system/app cache, temporary crash logs, obsolete APK installers, empty directories, and MD5-verified duplicate files.
+* **Storage Analyzer:** Circular usage gauge, multi-segment category allocation bar, large files scanner (>50MB), and live storage monitor matching the visual reference.
+* **Storage Cleaner:** Automated scans for application cache, temporary crash logs, obsolete APK installers, empty directories, and full-stream SHA-256 verified duplicate files.
 
 ### 4. Hardware-Backed AES-256 Secure Vault
 * AES-256-GCM authenticated encryption with unique 12-byte IVs.
-* PBKDF2-HMAC-SHA256 password derivation (65,536 iterations).
+* PBKDF2-HMAC-SHA256 password derivation (120,000 iterations).
 * `NOVAV1` file encapsulation header for foolproof integrity checks.
 * Duress PIN support and Biometric (Fingerprint/Face) hardware authentication.
 

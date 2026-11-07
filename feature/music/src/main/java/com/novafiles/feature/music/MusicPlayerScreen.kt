@@ -1,7 +1,6 @@
 @file:OptIn(
     androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.compose.foundation.ExperimentalFoundationApi::class,
-    androidx.media3.common.util.UnstableApi::class
+    androidx.compose.foundation.ExperimentalFoundationApi::class
 )
 
 package com.novafiles.feature.music

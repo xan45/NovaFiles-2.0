@@ -210,37 +210,10 @@ class StorageAnalyzerViewModel(
             )
         } ?: emptyList()
 
-        // Fallback recently deleted matching reference screen 3 if trash is empty
-        val finalDeleted = if (trashFiles.isNotEmpty()) {
-            trashFiles
-        } else {
-            listOf(
-                DeletedFileItem(
-                    file = File("/storage/emulated/0/DCIM/Camera/Office Trip"),
-                    name = "Office Trip",
-                    path = "/storage/emulated/0/DCIM/Camera/Office Trip",
-                    isDirectory = true,
-                    itemCount = 42,
-                    deletedTimestamp = System.currentTimeMillis() - (3 * 24 * 3600 * 1000L),
-                    daysRemaining = 27
-                ),
-                DeletedFileItem(
-                    file = File("/storage/emulated/0/DCIM/Camera/IMG_20200408_125418.jpg"),
-                    name = "IMG_20200408_125418.jpg",
-                    path = "/storage/emulated/0/DCIM/Camera/IMG_20200408_125418.jpg",
-                    sizeBytes = 2_900_000L,
-                    isDirectory = false,
-                    itemCount = 1,
-                    deletedTimestamp = System.currentTimeMillis() - (6 * 24 * 3600 * 1000L),
-                    daysRemaining = 24
-                )
-            )
-        }
-
         return Triple(
             categoryList,
             largeFilesFound.sortedByDescending { it.sizeBytes }.take(30),
-            finalDeleted
+            trashFiles
         )
     }
 

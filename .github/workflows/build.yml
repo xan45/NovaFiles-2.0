@@ -28,6 +28,9 @@ jobs:
       - name: Run Unit Tests Across All Modules
         run: ./gradlew test
 
+      - name: Run Android Lint Check
+        run: ./gradlew lintDebug
+
       - name: Assemble Debug APK
         run: ./gradlew assembleDebug
 

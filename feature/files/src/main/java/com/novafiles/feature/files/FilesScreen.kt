@@ -68,6 +68,9 @@ import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.model.FileItem
 import com.novafiles.core.model.SortBy
 import com.novafiles.core.ui.components.NovaConfirmDialog
+import com.novafiles.core.ui.components.NovaInputDialog
+import com.novafiles.core.ui.components.NovaButton
+import com.novafiles.core.ui.components.NovaButtonVariant
 import com.novafiles.core.ui.components.NovaEmptyState
 import com.novafiles.core.ui.components.NovaErrorState
 import com.novafiles.core.ui.components.NovaFileRow
@@ -86,10 +89,22 @@ fun FilesScreen(
     onSortChange: (SortBy) -> Unit,
     onToggleLayout: () -> Unit,
     onRetry: () -> Unit,
+    onCopy: () -> Unit = {},
+    onMove: () -> Unit = {},
+    onPaste: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onCreateFolder: (String) -> Unit = {},
+    onRenameFile: (FileItem, String) -> Unit = { _, _ -> },
+    onSearchQueryChange: (String) -> Unit = {},
+    onClearClipboard: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var fileToRename by remember { mutableStateOf<FileItem?>(null) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    var showSearchField by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -113,6 +128,13 @@ fun FilesScreen(
                 StandardHeader(
                     breadcrumbs = uiState.breadcrumbs,
                     isGridView = uiState.isGridView,
+                    searchQuery = uiState.searchQuery,
+                    isSearching = showSearchField,
+                    onToggleSearch = {
+                        showSearchField = !showSearchField
+                        if (!showSearchField) onSearchQueryChange("")
+                    },
+                    onSearchQueryChange = onSearchQueryChange,
                     onBreadcrumbClick = onFolderClick,
                     onToggleLayout = onToggleLayout
                 )
@@ -279,10 +301,10 @@ fun FilesScreen(
             }
         }
 
-        // Floating Action Button (+) for Add/Create
-        if (!uiState.isSelectionMode) {
+        // Floating Action Button (+) for Add/Create Folder
+        if (!uiState.isSelectionMode && uiState.clipboard == null) {
             FloatingActionButton(
-                onClick = {},
+                onClick = { showCreateFolderDialog = true },
                 containerColor = NovaTheme.colors.primary,
                 contentColor = Color.White,
                 shape = CircleShape,
@@ -290,11 +312,48 @@ fun FilesScreen(
                     .align(Alignment.BottomEnd)
                     .padding(end = 24.dp, bottom = 96.dp)
             ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Create / Add")
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Create Folder")
             }
         }
 
-        // Selection Bottom Action Dock (Reference Screen 2: Copy, Move, Delete, Edit, More)
+        // Clipboard Floating Paste Action Bar
+        if (uiState.clipboard != null) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 24.dp, end = 24.dp, bottom = 96.dp)
+                    .clip(NovaTheme.shapes.extraLarge)
+                    .background(NovaTheme.colors.surfaceElevated)
+                    .border(1.dp, NovaTheme.colors.primary, NovaTheme.shapes.extraLarge)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    tint = NovaTheme.colors.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "${uiState.clipboard.files.size} ready to ${uiState.clipboard.op.name.lowercase()}",
+                    style = NovaTheme.typography.captionMedium,
+                    color = NovaTheme.colors.textPrimary
+                )
+                NovaButton(
+                    text = "Paste",
+                    onClick = onPaste,
+                    variant = NovaButtonVariant.PRIMARY
+                )
+                NovaButton(
+                    text = "Cancel",
+                    onClick = onClearClipboard,
+                    variant = NovaButtonVariant.SECONDARY
+                )
+            }
+        }
+
+        // Selection Bottom Action Dock (Copy, Move, Delete, Rename)
         AnimatedVisibility(
             visible = uiState.isSelectionMode,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -304,10 +363,16 @@ fun FilesScreen(
                 .padding(horizontal = 24.dp, vertical = 20.dp)
         ) {
             SelectionBottomDock(
-                onCopy = {},
-                onMove = {},
+                onCopy = onCopy,
+                onMove = onMove,
                 onDelete = { showDeleteConfirm = true },
-                onEdit = {},
+                onEdit = {
+                    val item = (uiState.folders + uiState.files).firstOrNull { uiState.selectedIds.contains(it.id) }
+                    if (item != null) {
+                        fileToRename = item
+                        showRenameDialog = true
+                    }
+                },
                 onMore = {}
             )
         }
@@ -320,9 +385,45 @@ fun FilesScreen(
                 confirmText = "Delete",
                 onConfirm = {
                     showDeleteConfirm = false
-                    onClearSelection()
+                    onDelete()
                 },
                 onDismiss = { showDeleteConfirm = false }
+            )
+        }
+
+        // Create Folder Dialog Modal
+        if (showCreateFolderDialog) {
+            NovaInputDialog(
+                title = "New Folder",
+                placeholder = "Folder name",
+                confirmText = "Create",
+                onConfirm = { name ->
+                    showCreateFolderDialog = false
+                    onCreateFolder(name)
+                },
+                onDismiss = { showCreateFolderDialog = false }
+            )
+        }
+
+        // Rename File Dialog Modal
+        if (showRenameDialog && fileToRename != null) {
+            NovaInputDialog(
+                title = "Rename",
+                initialValue = fileToRename!!.name,
+                placeholder = "New name",
+                confirmText = "Rename",
+                onConfirm = { newName ->
+                    val target = fileToRename
+                    showRenameDialog = false
+                    fileToRename = null
+                    if (target != null) {
+                        onRenameFile(target, newName)
+                    }
+                },
+                onDismiss = {
+                    showRenameDialog = false
+                    fileToRename = null
+                }
             )
         }
     }
@@ -332,6 +433,10 @@ fun FilesScreen(
 private fun StandardHeader(
     breadcrumbs: List<BreadcrumbItem>,
     isGridView: Boolean,
+    searchQuery: String,
+    isSearching: Boolean,
+    onToggleSearch: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onBreadcrumbClick: (String) -> Unit,
     onToggleLayout: () -> Unit
 ) {
@@ -340,31 +445,62 @@ private fun StandardHeader(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Files",
-                style = NovaTheme.typography.title,
-                color = NovaTheme.colors.textPrimary
-            )
-
-            Row {
-                IconButton(onClick = {}) {
+        if (isSearching) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    placeholder = { Text("Search files...", color = NovaTheme.colors.textTertiary) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = NovaTheme.colors.textPrimary,
+                        unfocusedTextColor = NovaTheme.colors.textPrimary,
+                        focusedBorderColor = NovaTheme.colors.primary,
+                        unfocusedBorderColor = NovaTheme.colors.cardBorder
+                    )
+                )
+                IconButton(onClick = onToggleSearch) {
                     Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = NovaTheme.colors.textPrimary
+                        imageVector = Icons.Default.Add, // Rotated or close
+                        contentDescription = "Close Search",
+                        tint = NovaTheme.colors.textPrimary,
+                        modifier = Modifier.padding(start = 4.dp)
                     )
                 }
-                IconButton(onClick = onToggleLayout) {
-                    Icon(
-                        imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                        contentDescription = "Toggle Grid/List",
-                        tint = NovaTheme.colors.textPrimary
-                    )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Files",
+                    style = NovaTheme.typography.title,
+                    color = NovaTheme.colors.textPrimary
+                )
+
+                Row {
+                    IconButton(onClick = onToggleSearch) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = NovaTheme.colors.textPrimary
+                        )
+                    }
+                    IconButton(onClick = onToggleLayout) {
+                        Icon(
+                            imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+                            contentDescription = "Toggle Grid/List",
+                            tint = NovaTheme.colors.textPrimary
+                        )
+                    }
                 }
             }
         }

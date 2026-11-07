@@ -17,10 +17,16 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -115,6 +121,69 @@ fun NovaBottomSheet(
     ) {
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             content()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NovaInputDialog(
+    title: String,
+    initialValue: String = "",
+    placeholder: String = "Enter name",
+    confirmText: String = "Confirm",
+    cancelText: String = "Cancel",
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(initialValue) }
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(NovaTheme.shapes.extraLarge)
+                .background(NovaTheme.colors.surfaceElevated)
+                .border(1.dp, NovaTheme.colors.cardBorder, NovaTheme.shapes.extraLarge)
+                .padding(24.dp)
+        ) {
+            Text(
+                text = title,
+                style = NovaTheme.typography.title,
+                color = NovaTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text(placeholder, color = NovaTheme.colors.textTertiary) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = NovaTheme.colors.textPrimary,
+                    unfocusedTextColor = NovaTheme.colors.textPrimary,
+                    focusedBorderColor = NovaTheme.colors.primary,
+                    unfocusedBorderColor = NovaTheme.colors.cardBorder
+                )
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                NovaButton(
+                    text = cancelText,
+                    onClick = onDismiss,
+                    variant = NovaButtonVariant.SECONDARY
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                NovaButton(
+                    text = confirmText,
+                    onClick = {
+                        if (text.isNotBlank()) onConfirm(text.trim())
+                    },
+                    variant = NovaButtonVariant.PRIMARY
+                )
+            }
         }
     }
 }

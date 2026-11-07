@@ -26,8 +26,13 @@ class FileOperationsEngine {
         val allItems = mutableListOf<Pair<File, File>>() // source to target
         var totalBytes = 0L
 
+        val targetCanonical = targetDir.canonicalFile
         sources.forEach { src ->
+            val srcCanonical = src.canonicalFile
             if (src.isDirectory) {
+                if (targetCanonical == srcCanonical || targetCanonical.path.startsWith(srcCanonical.path + File.separator)) {
+                    throw IllegalArgumentException("Cannot copy directory '${src.name}' into itself or its subfolder.")
+                }
                 src.walkTopDown().forEach { subFile ->
                     val relPath = subFile.relativeTo(src).path
                     val destFile = File(File(targetDir, src.name), relPath)
@@ -119,10 +124,16 @@ class FileOperationsEngine {
     ): Flow<FileOperationProgress> = flow {
         if (!targetDir.exists()) targetDir.mkdirs()
 
+        val targetCanonical = targetDir.canonicalFile
         val totalCount = sources.size
         var processedCount = 0
 
         for (src in sources) {
+            val srcCanonical = src.canonicalFile
+            if (src.isDirectory && (targetCanonical == srcCanonical || targetCanonical.path.startsWith(srcCanonical.path + File.separator))) {
+                throw IllegalArgumentException("Cannot move directory '${src.name}' into itself or its subfolder.")
+            }
+
             processedCount++
             var dest = File(targetDir, src.name)
 
@@ -139,13 +150,23 @@ class FileOperationsEngine {
             // Attempt atomic filesystem rename
             val moved = src.renameTo(dest)
             if (!moved) {
-                // Fallback: Copy and delete
+                // Fallback: Copy-then-delete with strict transactional verification
                 if (src.isDirectory) {
-                    src.copyRecursively(dest, overwrite = true)
-                    src.deleteRecursively()
+                    val copySuccess = src.copyRecursively(dest, overwrite = true)
+                    if (copySuccess && dest.exists()) {
+                        src.deleteRecursively()
+                    } else {
+                        dest.deleteRecursively()
+                        throw java.io.IOException("Failed to copy directory completely: ${src.name}. Source preserved.")
+                    }
                 } else {
-                    src.copyTo(dest, overwrite = true)
-                    src.delete()
+                    val copiedFile = src.copyTo(dest, overwrite = true)
+                    if (copiedFile.exists() && copiedFile.length() == src.length()) {
+                        src.delete()
+                    } else {
+                        copiedFile.delete()
+                        throw java.io.IOException("Failed to copy file completely: ${src.name}. Source preserved.")
+                    }
                 }
             }
 

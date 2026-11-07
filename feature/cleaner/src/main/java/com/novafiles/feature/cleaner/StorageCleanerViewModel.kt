@@ -160,11 +160,11 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
             }
         }
 
-        // 3. Duplicate detection by size grouping and checksum
+        // 3. Duplicate detection by size grouping and full SHA-256 stream checksum
         val duplicates = mutableListOf<JunkItem>()
         val bySize = allSmallFiles.groupBy { it.length() }.filter { it.value.size > 1 }
         for ((_, files) in bySize) {
-            val byHash = files.groupBy { computeQuickChecksum(it) }
+            val byHash = files.groupBy { computeFileChecksum(it) }
             for ((hash, matchingFiles) in byHash) {
                 if (hash.isNotEmpty() && matchingFiles.size > 1) {
                     // Keep original (first), mark subsequent as duplicate junk
@@ -173,25 +173,6 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
                     }
                 }
             }
-        }
-
-        // Provide verified sample junk if scanned directory was clean, so user always sees the cleanable options
-        if (cacheItems.isEmpty() && tempLogItems.isEmpty() && obsoleteApkItems.isEmpty()) {
-            val dummyCacheDir = File(getApplication<Application>().cacheDir, "sample_junk_cache").apply { mkdirs() }
-            val dummyCacheFile = File(dummyCacheDir, "app_temp_render.cache").apply {
-                if (!exists()) writeBytes(ByteArray(2_400_000))
-            }
-            cacheItems.add(JunkItem(file = dummyCacheFile, category = JunkCategoryType.CACHE))
-
-            val dummyLogFile = File(dummyCacheDir, "debug_network_2023.log").apply {
-                if (!exists()) writeBytes(ByteArray(1_200_000))
-            }
-            tempLogItems.add(JunkItem(file = dummyLogFile, category = JunkCategoryType.TEMP_LOGS))
-
-            val dummyApk = File(dummyCacheDir, "update_installer_v1.0.apk").apply {
-                if (!exists()) writeBytes(ByteArray(15_800_000))
-            }
-            obsoleteApkItems.add(JunkItem(file = dummyApk, category = JunkCategoryType.OBSOLETE_APKS))
         }
 
         return listOf(
@@ -233,16 +214,18 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
         )
     }
 
-    private fun computeQuickChecksum(file: File): String {
+    private fun computeFileChecksum(file: File): String {
         return try {
-            val md = MessageDigest.getInstance("MD5")
-            val buffer = ByteArray(8192)
+            val md = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(64 * 1024)
             FileInputStream(file).use { fis ->
-                var read = fis.read(buffer)
-                if (read > 0) md.update(buffer, 0, read)
+                var read: Int
+                while (fis.read(buffer).also { read = it } != -1) {
+                    if (read > 0) md.update(buffer, 0, read)
+                }
             }
             md.digest().joinToString("") { "%02x".format(it) }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             ""
         }
     }
@@ -299,7 +282,7 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
             _uiState.update {
                 it.copy(
                     state = CleanerState.FINISHED,
-                    cleanedBytes = freedBytes.coerceAtLeast(it.selectedCleanableBytes),
+                    cleanedBytes = freedBytes,
                     cleanedItemsCount = itemsDeleted
                 )
             }

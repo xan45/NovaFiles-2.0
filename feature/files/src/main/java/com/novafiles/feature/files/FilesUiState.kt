@@ -8,6 +8,13 @@ data class BreadcrumbItem(
     val path: String
 )
 
+enum class ClipboardOp { COPY, MOVE }
+
+data class ClipboardState(
+    val files: List<FileItem> = emptyList(),
+    val op: ClipboardOp = ClipboardOp.COPY
+)
+
 data class FilesUiState(
     val currentPath: String = "",
     val breadcrumbs: List<BreadcrumbItem> = emptyList(),
@@ -18,6 +25,9 @@ data class FilesUiState(
     val sortConfig: FileSortConfig = FileSortConfig(),
     val isGridView: Boolean = false,
     val isLoading: Boolean = false,
+    val isOperating: Boolean = false,
+    val operationMessage: String? = null,
+    val clipboard: ClipboardState? = null,
     val errorMessage: String? = null,
     val searchQuery: String = "",
     val hasStoragePermission: Boolean = true

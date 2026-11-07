@@ -5,6 +5,26 @@ All notable changes to NovaFiles 2.0 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.0-alpha.2] - 2026-11-07
+
+### Fixed
+- **Duplicate Scanner Collision & Data Loss**: Replaced 8 KB truncated MD5 checksum with full-stream SHA-256 calculation processed in 64 KB streaming buffers, preventing data loss from false duplicate collisions.
+- **Transactional Move Safety**: Hardened `FileOperationsEngine.moveFiles` with copy-then-delete verification; source files are now only removed after confirming destination existence and size, with automatic rollback if copy fails.
+- **Recursive Move Prevention**: Added canonical path parent checks preventing moving or copying directories into themselves or any of their descendants.
+- **Biometric Hardware Authentication**: Migrated `MainActivity` to `androidx.fragment.app.FragmentActivity`, resolving biometric authentication failures across Android 10+.
+- **All-Files-Access Permission Flow**: Added a dedicated storage permission onboarding screen with one-tap CTA directing users to system storage settings when `MANAGE_EXTERNAL_STORAGE` is not yet granted.
+- **Foreground Service Lifecycle**: Replaced premature `startForegroundService` call in `MusicPlaybackManager` with on-demand service binding, eliminating `ForegroundServiceDidNotStartInTimeException` crashes.
+- **Dead File Browser Controls**: Fully connected the (+) FAB to `NovaInputDialog` folder creation, connected selection dock actions (Copy, Move, Rename, Delete), and added floating clipboard paste bar.
+- **Live Dashboard Storage Metrics**: Connected real `FileSystemDataSource` storage statistics, live directories, and live recent files to `NovaHomeDashboard`, replacing static placeholders.
+- **Theme Persistence**: Connected `SettingsPreferencesRepository` in `MainActivity` ensuring selected theme mode and accent color persist across app restarts.
+- **Data Integrity & Simulation Removal**: Removed 19.4 MB synthetic junk file generator (`sample_junk_cache`) and removed hardcoded mock deleted items from storage analysis.
+- **Backup Data Protection**: Set `android:allowBackup="false"` in `AndroidManifest.xml` to prevent extraction of PBKDF2 vault credentials via ADB backup.
+- **Dependency Acknowledgements**: Corrected About screen credits to accurately list Compose ("Declarative UI") instead of Room.
+
+### Changed
+- Configured automated release signing via `local.properties` and environment variables with official `novafiles-release.jks` keystore.
+- Upgraded release build configuration to `versionCode = 10`, `versionName = "2.0.0-alpha2"`.
+
 ## [v2.0.0-alpha.1] - 2026-11-07
 
 ### Added

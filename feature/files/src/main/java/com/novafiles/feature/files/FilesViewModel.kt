@@ -8,6 +8,7 @@ import com.novafiles.core.model.FileItem
 import com.novafiles.core.model.FileSortConfig
 import com.novafiles.core.model.SortBy
 import com.novafiles.core.model.SortDirection
+import com.novafiles.core.storage.FileOperationsEngine
 import com.novafiles.data.files.FileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ class FilesViewModel(
 ) : ViewModel() {
 
     private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
+    private val operationsEngine = FileOperationsEngine()
     private val _uiState = MutableStateFlow(
         FilesUiState(
             currentPath = initialPath ?: rootPath,
@@ -56,8 +58,14 @@ class FilesViewModel(
                         _uiState.update { it.copy(isLoading = true) }
                     }
                     is NovaResult.Success -> {
-                        val folders = result.data.filter { it.isDirectory }
-                        val files = result.data.filter { !it.isDirectory }
+                        val query = _uiState.value.searchQuery.trim()
+                        val filteredData = if (query.isNotBlank()) {
+                            result.data.filter { it.name.contains(query, ignoreCase = true) }
+                        } else {
+                            result.data
+                        }
+                        val folders = filteredData.filter { it.isDirectory }
+                        val files = filteredData.filter { !it.isDirectory }
                         _uiState.update {
                             it.copy(
                                 folders = folders,
@@ -141,6 +149,123 @@ class FilesViewModel(
 
     fun setSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        loadDirectory(_uiState.value.currentPath)
+    }
+
+    fun getSelectedFileItems(): List<FileItem> {
+        val ids = _uiState.value.selectedIds
+        return (_uiState.value.folders + _uiState.value.files).filter { ids.contains(it.id) }
+    }
+
+    fun copySelected() {
+        val selectedFiles = getSelectedFileItems()
+        if (selectedFiles.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    clipboard = ClipboardState(files = selectedFiles, op = ClipboardOp.COPY),
+                    selectedIds = emptySet(),
+                    isSelectionMode = false,
+                    operationMessage = "Copied ${selectedFiles.size} items to clipboard"
+                )
+            }
+        }
+    }
+
+    fun moveSelected() {
+        val selectedFiles = getSelectedFileItems()
+        if (selectedFiles.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    clipboard = ClipboardState(files = selectedFiles, op = ClipboardOp.MOVE),
+                    selectedIds = emptySet(),
+                    isSelectionMode = false,
+                    operationMessage = "Cut ${selectedFiles.size} items to clipboard"
+                )
+            }
+        }
+    }
+
+    fun pasteClipboard() {
+        val clip = _uiState.value.clipboard ?: return
+        val targetDir = File(_uiState.value.currentPath)
+        val sources = clip.files.map { File(it.path) }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isOperating = true, operationMessage = "Processing...") }
+            try {
+                if (clip.op == ClipboardOp.COPY) {
+                    operationsEngine.copyFiles(sources, targetDir).collect { progress ->
+                        _uiState.update { it.copy(operationMessage = "Copying ${progress.currentFileName} (${progress.processedCount}/${progress.totalCount})") }
+                    }
+                } else {
+                    operationsEngine.moveFiles(sources, targetDir).collect { progress ->
+                        _uiState.update { it.copy(operationMessage = "Moving ${progress.currentFileName} (${progress.processedCount}/${progress.totalCount})") }
+                    }
+                }
+                _uiState.update { it.copy(clipboard = null, isOperating = false, operationMessage = "Operation completed successfully") }
+                loadDirectory(_uiState.value.currentPath)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isOperating = false, errorMessage = e.message ?: "Operation failed") }
+            }
+        }
+    }
+
+    fun deleteSelectedFiles() {
+        val selectedFiles = getSelectedFileItems()
+        if (selectedFiles.isEmpty()) return
+        val targets = selectedFiles.map { File(it.path) }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isOperating = true, operationMessage = "Deleting...") }
+            try {
+                operationsEngine.deleteFiles(targets).collect { progress ->
+                    _uiState.update { it.copy(operationMessage = "Deleting ${progress.currentFileName}...") }
+                }
+                _uiState.update {
+                    it.copy(
+                        selectedIds = emptySet(),
+                        isSelectionMode = false,
+                        isOperating = false,
+                        operationMessage = "Deleted ${targets.size} items"
+                    )
+                }
+                loadDirectory(_uiState.value.currentPath)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isOperating = false, errorMessage = e.message ?: "Delete failed") }
+            }
+        }
+    }
+
+    fun createNewFolder(name: String) {
+        val targetDir = File(_uiState.value.currentPath)
+        viewModelScope.launch {
+            val result = operationsEngine.createDirectory(targetDir, name)
+            if (result.isSuccess) {
+                loadDirectory(_uiState.value.currentPath)
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to create folder") }
+            }
+        }
+    }
+
+    fun renameFile(fileItem: FileItem, newName: String) {
+        viewModelScope.launch {
+            val result = operationsEngine.renameFile(File(fileItem.path), newName)
+            if (result.isSuccess) {
+                clearSelection()
+                loadDirectory(_uiState.value.currentPath)
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to rename") }
+            }
+        }
+    }
+
+    fun clearClipboard() {
+        _uiState.update { it.copy(clipboard = null, operationMessage = null) }
+    }
+
+    fun clearOperationMessage() {
+        _uiState.update { it.copy(operationMessage = null) }
     }
 
     private fun buildBreadcrumbs(path: String): List<BreadcrumbItem> {

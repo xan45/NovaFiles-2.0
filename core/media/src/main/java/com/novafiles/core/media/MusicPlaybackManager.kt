@@ -46,6 +46,16 @@ object MusicPlaybackManager {
     private val _state = MutableStateFlow(MusicState())
     val state: StateFlow<MusicState> = _state.asStateFlow()
 
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+        if (player == null) {
+            try {
+                val serviceIntent = Intent(context, NovaMusicPlaybackService::class.java)
+                context.startService(serviceIntent)
+            } catch (_: Exception) {}
+        }
+    }
+
     fun bindPlayer(exoPlayer: ExoPlayer, context: Context) {
         player = exoPlayer
         appContext = context

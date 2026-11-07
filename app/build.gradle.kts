@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -12,18 +14,53 @@ android {
         applicationId = "com.example.novafiles"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "2.0.0-alpha1"
+        versionCode = 10
+        versionName = "2.0.0-alpha2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val localProperties = Properties().apply {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { stream ->
+                load(stream)
+            }
+        }
+    }
+
+    val releaseStorePath = System.getenv("KEYSTORE_PATH") ?: localProperties.getProperty("KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("STORE_PASSWORD") ?: localProperties.getProperty("STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("KEY_PASSWORD")
+
     signingConfigs {
         create("release") {
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            val isConfigured = !releaseStorePath.isNullOrBlank() &&
+                !releaseStorePassword.isNullOrBlank() &&
+                !releaseKeyAlias.isNullOrBlank() &&
+                !releaseKeyPassword.isNullOrBlank()
+
+            if (isConfigured) {
+                val rawFile = File(releaseStorePath)
+                val ksFile = if (rawFile.isAbsolute) rawFile else rootProject.file(releaseStorePath)
+                if (ksFile.exists()) {
+                    storeFile = ksFile
+                    storePassword = releaseStorePassword
+                    keyAlias = releaseKeyAlias
+                    keyPassword = releaseKeyPassword
+                } else {
+                    storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                }
+            } else {
+                storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
@@ -73,6 +110,7 @@ dependencies {
     implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.biometric)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

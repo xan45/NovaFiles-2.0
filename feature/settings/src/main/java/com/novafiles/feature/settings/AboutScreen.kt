@@ -159,8 +159,8 @@ fun AboutScreen(
                 license = "Apache 2.0"
             ),
             OpenSourceLibrary(
-                name = "Room",
-                role = "Local Database",
+                name = "Compose",
+                role = "Declarative UI",
                 icon = Icons.Rounded.Layers,
                 license = "Apache 2.0"
             ),
