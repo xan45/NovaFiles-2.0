@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -48,6 +51,8 @@ import com.novafiles.core.model.ThemeMode
 import com.novafiles.core.navigation.NovaScaffold
 import com.novafiles.core.storage.FileSystemDataSource
 import com.novafiles.core.storage.StorageVolumeManager
+import com.novafiles.core.ui.branding.AppLogo
+import com.novafiles.core.ui.branding.NovaSplashScreen
 import com.novafiles.core.ui.components.NovaButton
 import com.novafiles.core.ui.components.NovaButtonVariant
 import com.novafiles.core.ui.components.NovaCard
@@ -73,6 +78,7 @@ import com.novafiles.feature.gallery.GalleryScreen
 import com.novafiles.feature.music.MusicPlayerScreen
 import com.novafiles.feature.music.MusicPlayerViewModel
 import com.novafiles.feature.music.NovaMiniMusicPlayer
+import com.novafiles.feature.settings.AboutScreen
 import com.novafiles.feature.settings.SettingsScreen
 import com.novafiles.feature.vault.VaultScreen
 import com.novafiles.feature.video.VideoPlayerScreen
@@ -86,6 +92,7 @@ sealed interface ActiveScreen {
     data object StorageCleaner : ActiveScreen
     data object FtpServer : ActiveScreen
     data class TextEditor(val filePath: String) : ActiveScreen
+    data object About : ActiveScreen
 }
 
 class MainActivity : ComponentActivity() {
@@ -104,18 +111,23 @@ class MainActivity : ComponentActivity() {
             var themeConfig by remember {
                 mutableStateOf(ThemeConfig(mode = ThemeMode.DARK, accent = AccentColor.INDIGO))
             }
+            var showSplash by remember { mutableStateOf(true) }
             val filesViewModel = remember { FilesViewModel(fileRepository) }
             val dualPaneViewModel = remember { DualPaneViewModel(fileRepository) }
             val musicViewModel = remember { MusicPlayerViewModel(fileRepository) }
 
             NovaTheme(config = themeConfig) {
-                NovaFilesMainApp(
-                    filesViewModel = filesViewModel,
-                    dualPaneViewModel = dualPaneViewModel,
-                    musicViewModel = musicViewModel,
-                    themeConfig = themeConfig,
-                    onThemeConfigChange = { themeConfig = it }
-                )
+                if (showSplash) {
+                    NovaSplashScreen(onSplashFinished = { showSplash = false })
+                } else {
+                    NovaFilesMainApp(
+                        filesViewModel = filesViewModel,
+                        dualPaneViewModel = dualPaneViewModel,
+                        musicViewModel = musicViewModel,
+                        themeConfig = themeConfig,
+                        onThemeConfigChange = { themeConfig = it }
+                    )
+                }
             }
         }
     }
@@ -194,6 +206,11 @@ fun NovaFilesMainApp(
                     onNavigateBack = { activeScreen = null }
                 )
             }
+            is ActiveScreen.About -> {
+                AboutScreen(
+                    onNavigateBack = { activeScreen = null }
+                )
+            }
             null -> {}
         }
         return
@@ -225,6 +242,7 @@ fun NovaFilesMainApp(
                     onThemeConfigChange = onThemeConfigChange,
                     onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
                     onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
+                    onAboutClick = { activeScreen = ActiveScreen.About },
                     onCategoryClick = { categoryName ->
                         when (categoryName) {
                             "Photos" -> {
@@ -310,6 +328,7 @@ fun NovaFilesMainApp(
                     onNavigateToFtp = { activeScreen = ActiveScreen.FtpServer },
                     onNavigateToAnalyzer = { activeScreen = ActiveScreen.StorageAnalyzer },
                     onNavigateToCleaner = { activeScreen = ActiveScreen.StorageCleaner },
+                    onNavigateToAbout = { activeScreen = ActiveScreen.About },
                     onThemeConfigChange = onThemeConfigChange,
                     modifier = contentModifier
                 )
@@ -325,7 +344,8 @@ fun NovaHomeDashboard(
     onStorageOverviewClick: () -> Unit,
     onCleanUpClick: () -> Unit,
     onCategoryClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAboutClick: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -333,8 +353,10 @@ fun NovaHomeDashboard(
             .padding(horizontal = 20.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
     ) {
-        // Header / Greeting
+        // Header / Official Application Branding
         item {
+            var showMenu by remember { mutableStateOf(false) }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -343,34 +365,44 @@ fun NovaHomeDashboard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Good Morning,",
-                        style = NovaTheme.typography.captionMedium,
-                        color = NovaTheme.colors.textSecondary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Alexedra",
-                        style = NovaTheme.typography.title,
-                        color = NovaTheme.colors.textPrimary
-                    )
-                }
+                AppLogo(
+                    iconSize = 44.dp,
+                    showWordmark = true,
+                    showBadge = true,
+                    showTagline = true,
+                    tagline = "Advanced Storage & File Management Suite"
+                )
 
-                Row {
-                    IconButton(onClick = {}) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onStorageOverviewClick) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = NovaTheme.colors.textPrimary
                         )
                     }
-                    IconButton(onClick = {}) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More",
-                            tint = NovaTheme.colors.textPrimary
-                        )
+
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = NovaTheme.colors.textPrimary
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("About NovaFiles") },
+                                onClick = {
+                                    showMenu = false
+                                    onAboutClick()
+                                }
+                            )
+                        }
                     }
                 }
             }

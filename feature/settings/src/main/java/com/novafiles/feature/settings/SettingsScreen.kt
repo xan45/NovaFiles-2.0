@@ -80,6 +80,7 @@ fun SettingsScreen(
     onNavigateToCleaner: () -> Unit,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateToAbout: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -342,10 +343,10 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             SettingsActionRow(
-                                title = "Version",
-                                subtitle = "2.0.0-alpha1 (Build 9) • Kotlin 2.2 + Jetpack Compose",
+                                title = "About NovaFiles",
+                                subtitle = "Advanced Storage & File Management Suite • 2.0",
                                 icon = Icons.Rounded.Info,
-                                onClick = {}
+                                onClick = onNavigateToAbout
                             )
 
                             SettingsActionRow(
