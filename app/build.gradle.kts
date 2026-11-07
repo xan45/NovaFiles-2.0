@@ -58,6 +58,8 @@ dependencies {
     implementation(project(":feature:vault"))
     implementation(project(":feature:analyzer"))
     implementation(project(":feature:cleaner"))
+    implementation(project(":feature:ftp"))
+    implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

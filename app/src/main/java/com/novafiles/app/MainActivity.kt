@@ -67,10 +67,13 @@ import com.novafiles.feature.dualpane.DualPaneScreen
 import com.novafiles.feature.dualpane.DualPaneViewModel
 import com.novafiles.feature.files.FilesScreen
 import com.novafiles.feature.files.FilesViewModel
+import com.novafiles.feature.files.TextEditorScreen
+import com.novafiles.feature.ftp.FtpServerScreen
 import com.novafiles.feature.gallery.GalleryScreen
 import com.novafiles.feature.music.MusicPlayerScreen
 import com.novafiles.feature.music.MusicPlayerViewModel
 import com.novafiles.feature.music.NovaMiniMusicPlayer
+import com.novafiles.feature.settings.SettingsScreen
 import com.novafiles.feature.vault.VaultScreen
 import com.novafiles.feature.video.VideoPlayerScreen
 import java.io.File
@@ -81,6 +84,8 @@ sealed interface ActiveScreen {
     data class Gallery(val album: String? = null) : ActiveScreen
     data object StorageAnalyzer : ActiveScreen
     data object StorageCleaner : ActiveScreen
+    data object FtpServer : ActiveScreen
+    data class TextEditor(val filePath: String) : ActiveScreen
 }
 
 class MainActivity : ComponentActivity() {
@@ -165,6 +170,9 @@ fun NovaFilesMainApp(
                             FileType.IMAGE -> {
                                 activeScreen = ActiveScreen.Gallery()
                             }
+                            FileType.DOCUMENT -> {
+                                activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            }
                             else -> {}
                         }
                     }
@@ -172,6 +180,17 @@ fun NovaFilesMainApp(
             }
             is ActiveScreen.StorageCleaner -> {
                 StorageCleanerScreen(
+                    onNavigateBack = { activeScreen = null }
+                )
+            }
+            is ActiveScreen.FtpServer -> {
+                FtpServerScreen(
+                    onNavigateBack = { activeScreen = null }
+                )
+            }
+            is ActiveScreen.TextEditor -> {
+                TextEditorScreen(
+                    filePath = screen.filePath,
                     onNavigateBack = { activeScreen = null }
                 )
             }
@@ -249,6 +268,9 @@ fun NovaFilesMainApp(
                             FileType.IMAGE -> {
                                 activeScreen = ActiveScreen.Gallery()
                             }
+                            FileType.DOCUMENT -> {
+                                activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            }
                             else -> {}
                         }
                     },
@@ -284,13 +306,11 @@ fun NovaFilesMainApp(
                 )
             }
             NovaNavTab.SETTINGS -> {
-                /* Handled in Phase 6: Settings */
-                NovaHomeDashboard(
-                    themeConfig = themeConfig,
+                SettingsScreen(
+                    onNavigateToFtp = { activeScreen = ActiveScreen.FtpServer },
+                    onNavigateToAnalyzer = { activeScreen = ActiveScreen.StorageAnalyzer },
+                    onNavigateToCleaner = { activeScreen = ActiveScreen.StorageCleaner },
                     onThemeConfigChange = onThemeConfigChange,
-                    onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
-                    onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
-                    onCategoryClick = {},
                     modifier = contentModifier
                 )
             }
