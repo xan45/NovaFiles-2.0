@@ -150,5 +150,46 @@ The resulting signed APK is placed at:
 
 ---
 
+## 📲 Installation & Upgrade Notice
+
+> [!WARNING]
+> **Clean Installation Required for Upgrades from Legacy v1.x**  
+> NovaFiles 2.0 is a complete ground-up rewrite featuring a modernized database schema, multi-module architecture, and an updated release signing key.  
+> * If you have any previous legacy build (v1.0.0-beta1 through v1.0.0-rc.2-build3) installed on your device, you **must completely uninstall the old version** before installing NovaFiles 2.0.
+> * In-place updates over legacy builds will result in an `INSTALL_FAILED_UPDATE_INCOMPATIBLE` signature mismatch error from the Android Package Manager.
+> * Ensure you back up any unencrypted vault files before uninstalling previous legacy versions.
+
+---
+
+## 📱 Physical Device Verification
+
+NovaFiles 2.0 has been verified on physical hardware running Android 17 / SDK 37:
+* **Target Hardware**: Samsung Galaxy (`SM-S942B`), Octa-core ARM64-v8a.
+* **OS Version**: Android 17 (API 37).
+* **Storage Diagnostics**: Verified live scanning of internal storage, identifying 2.1 GB of reclaimable junk and 35 obsolete APK installers with sub-second responsiveness.
+* **Theming Engine**: Verified dynamic real-time swapping across all 18 theme variations (including Dark Navy default and pure AMOLED `#000000` power-saving mode).
+* **Media & Playback**: Verified persistent Media3 notification, lock-screen controls, and background playback resumption.
+
+---
+
+## 🔒 Privacy & Security
+
+* **100% Offline**: NovaFiles 2.0 requires zero internet permissions for core file management.
+* **Zero Telemetry**: No analytics SDKs, no ad trackers, and no remote crash reporting beacons.
+* **Local Processing**: Storage analysis, duplicate detection, and encryption take place 100% on-device.
+* **Sandboxed Wi-Fi FTP**: Wireless transfers operate strictly over the user's local Wi-Fi subnet with canonical path-traversal sandboxing.
+
+---
+
+## 👨‍💻 Developer & Project Attribution
+
+* **Lead Developer & Maintainer**: **Abhinav Kishore (Xan45)**
+* **Engineering Platform**: Crafted with **Google Antigravity**
+* **Support & Inquiries**: [xandronhq@gmail.com](mailto:xandronhq@gmail.com)
+* **Official Repository**: [https://github.com/xan45/NovaFiles-2.0](https://github.com/xan45/NovaFiles-2.0)
+* **Legacy Archive**: [https://github.com/xan45/NovaFiles-Legacy](https://github.com/xan45/NovaFiles-Legacy) (Historical reference only)
+
+---
+
 ## 📄 License
 Licensed under the Apache License, Version 2.0.
