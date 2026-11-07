@@ -54,6 +54,10 @@ dependencies {
     implementation(project(":feature:music"))
     implementation(project(":feature:video"))
     implementation(project(":feature:gallery"))
+    implementation(project(":core:security"))
+    implementation(project(":feature:vault"))
+    implementation(project(":feature:analyzer"))
+    implementation(project(":feature:cleaner"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

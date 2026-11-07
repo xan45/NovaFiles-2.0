@@ -58,8 +58,11 @@ import com.novafiles.core.ui.components.NovaNavigationBar
 import com.novafiles.core.ui.components.NovaNavTab
 import com.novafiles.core.ui.components.NovaStorageSegmentBar
 import com.novafiles.core.ui.components.StorageSegment
+import androidx.compose.foundation.clickable
 import com.novafiles.core.media.MusicPlaybackManager
 import com.novafiles.data.files.FileRepositoryImpl
+import com.novafiles.feature.analyzer.StorageAnalyzerScreen
+import com.novafiles.feature.cleaner.StorageCleanerScreen
 import com.novafiles.feature.dualpane.DualPaneScreen
 import com.novafiles.feature.dualpane.DualPaneViewModel
 import com.novafiles.feature.files.FilesScreen
@@ -68,13 +71,16 @@ import com.novafiles.feature.gallery.GalleryScreen
 import com.novafiles.feature.music.MusicPlayerScreen
 import com.novafiles.feature.music.MusicPlayerViewModel
 import com.novafiles.feature.music.NovaMiniMusicPlayer
+import com.novafiles.feature.vault.VaultScreen
 import com.novafiles.feature.video.VideoPlayerScreen
 import java.io.File
 
-sealed interface ActiveMediaScreen {
-    data class Video(val filePath: String) : ActiveMediaScreen
-    data object Music : ActiveMediaScreen
-    data class Gallery(val album: String? = null) : ActiveMediaScreen
+sealed interface ActiveScreen {
+    data class Video(val filePath: String) : ActiveScreen
+    data object Music : ActiveScreen
+    data class Gallery(val album: String? = null) : ActiveScreen
+    data object StorageAnalyzer : ActiveScreen
+    data object StorageCleaner : ActiveScreen
 }
 
 class MainActivity : ComponentActivity() {
@@ -120,28 +126,53 @@ fun NovaFilesMainApp(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NovaNavTab.HOME) }
-    var activeMediaScreen by remember { mutableStateOf<ActiveMediaScreen?>(null) }
+    var activeScreen by remember { mutableStateOf<ActiveScreen?>(null) }
     val filesUiState by filesViewModel.uiState.collectAsState()
     val dualPaneUiState by dualPaneViewModel.uiState.collectAsState()
     val playbackState by MusicPlaybackManager.state.collectAsState()
 
-    if (activeMediaScreen != null) {
-        when (val screen = activeMediaScreen) {
-            is ActiveMediaScreen.Video -> {
+    if (activeScreen != null) {
+        when (val screen = activeScreen) {
+            is ActiveScreen.Video -> {
                 VideoPlayerScreen(
                     videoFilePath = screen.filePath,
-                    onNavigateBack = { activeMediaScreen = null }
+                    onNavigateBack = { activeScreen = null }
                 )
             }
-            is ActiveMediaScreen.Music -> {
+            is ActiveScreen.Music -> {
                 MusicPlayerScreen(
                     viewModel = musicViewModel,
-                    onNavigateBack = { activeMediaScreen = null }
+                    onNavigateBack = { activeScreen = null }
                 )
             }
-            is ActiveMediaScreen.Gallery -> {
+            is ActiveScreen.Gallery -> {
                 GalleryScreen(
-                    onNavigateBack = { activeMediaScreen = null }
+                    onNavigateBack = { activeScreen = null }
+                )
+            }
+            is ActiveScreen.StorageAnalyzer -> {
+                StorageAnalyzerScreen(
+                    onNavigateBack = { activeScreen = null },
+                    onOpenFile = { fileItem ->
+                        when (fileItem.fileType) {
+                            FileType.AUDIO -> {
+                                musicViewModel.playTrack(fileItem)
+                                activeScreen = ActiveScreen.Music
+                            }
+                            FileType.VIDEO -> {
+                                activeScreen = ActiveScreen.Video(fileItem.path)
+                            }
+                            FileType.IMAGE -> {
+                                activeScreen = ActiveScreen.Gallery()
+                            }
+                            else -> {}
+                        }
+                    }
+                )
+            }
+            is ActiveScreen.StorageCleaner -> {
+                StorageCleanerScreen(
+                    onNavigateBack = { activeScreen = null }
                 )
             }
             null -> {}
@@ -158,7 +189,7 @@ fun NovaFilesMainApp(
                         musicState = playbackState,
                         onPlayPause = { MusicPlaybackManager.togglePlayPause() },
                         onNext = { MusicPlaybackManager.skipToNext() },
-                        onClick = { activeMediaScreen = ActiveMediaScreen.Music }
+                        onClick = { activeScreen = ActiveScreen.Music }
                     )
                 }
                 NovaNavigationBar(
@@ -173,13 +204,15 @@ fun NovaFilesMainApp(
                 NovaHomeDashboard(
                     themeConfig = themeConfig,
                     onThemeConfigChange = onThemeConfigChange,
+                    onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
+                    onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
                     onCategoryClick = { categoryName ->
                         when (categoryName) {
                             "Photos" -> {
-                                activeMediaScreen = ActiveMediaScreen.Gallery()
+                                activeScreen = ActiveScreen.Gallery()
                             }
                             "Audio" -> {
-                                activeMediaScreen = ActiveMediaScreen.Music
+                                activeScreen = ActiveScreen.Music
                             }
                             "Videos" -> {
                                 val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
@@ -208,13 +241,13 @@ fun NovaFilesMainApp(
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
                                 musicViewModel.playTrack(fileItem)
-                                activeMediaScreen = ActiveMediaScreen.Music
+                                activeScreen = ActiveScreen.Music
                             }
                             FileType.VIDEO -> {
-                                activeMediaScreen = ActiveMediaScreen.Video(fileItem.path)
+                                activeScreen = ActiveScreen.Video(fileItem.path)
                             }
                             FileType.IMAGE -> {
-                                activeMediaScreen = ActiveMediaScreen.Gallery()
+                                activeScreen = ActiveScreen.Gallery()
                             }
                             else -> {}
                         }
@@ -245,11 +278,8 @@ fun NovaFilesMainApp(
                 )
             }
             NovaNavTab.VAULT -> {
-                /* Handled in Phase 5: Vault */
-                NovaHomeDashboard(
-                    themeConfig = themeConfig,
-                    onThemeConfigChange = onThemeConfigChange,
-                    onCategoryClick = {},
+                VaultScreen(
+                    onNavigateBack = { selectedTab = NovaNavTab.HOME },
                     modifier = contentModifier
                 )
             }
@@ -258,6 +288,8 @@ fun NovaFilesMainApp(
                 NovaHomeDashboard(
                     themeConfig = themeConfig,
                     onThemeConfigChange = onThemeConfigChange,
+                    onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
+                    onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
                     onCategoryClick = {},
                     modifier = contentModifier
                 )
@@ -270,6 +302,8 @@ fun NovaFilesMainApp(
 fun NovaHomeDashboard(
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
+    onStorageOverviewClick: () -> Unit,
+    onCleanUpClick: () -> Unit,
     onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -334,7 +368,9 @@ fun NovaHomeDashboard(
         // Storage Overview Card (Reference: media_1794034804827_b8bf4514.jpg)
         item {
             NovaCard(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onStorageOverviewClick),
                 shape = NovaTheme.shapes.extraLarge,
                 backgroundColor = NovaTheme.colors.surfaceElevated
             ) {
@@ -360,7 +396,7 @@ fun NovaHomeDashboard(
 
                         NovaButton(
                             text = "Clean up",
-                            onClick = {},
+                            onClick = onCleanUpClick,
                             variant = NovaButtonVariant.GRADIENT,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         )
