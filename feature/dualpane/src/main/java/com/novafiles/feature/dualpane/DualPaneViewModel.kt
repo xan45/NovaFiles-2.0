@@ -37,8 +37,8 @@ class DualPaneViewModel(
     private val fileOperationsEngine: FileOperationsEngine = FileOperationsEngine()
 ) : ViewModel() {
 
-    private val rootPath = Environment.getExternalStorageDirectory().absolutePath
-    private val downloadsPath = File(Environment.getExternalStorageDirectory(), "Download").absolutePath
+    private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
+    private val downloadsPath = "$rootPath/Download"
 
     private val _uiState = MutableStateFlow(
         DualPaneUiState(
@@ -58,8 +58,8 @@ class DualPaneViewModel(
     }
 
     fun loadPaneA(path: String) {
+        _uiState.update { it.copy(paneA = it.paneA.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
         viewModelScope.launch {
-            _uiState.update { it.copy(paneA = it.paneA.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
             fileRepository.getFiles(path).collect { result ->
                 if (result is NovaResult.Success) {
                     val folders = result.data.filter { it.isDirectory }
@@ -71,8 +71,8 @@ class DualPaneViewModel(
     }
 
     fun loadPaneB(path: String) {
+        _uiState.update { it.copy(paneB = it.paneB.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
         viewModelScope.launch {
-            _uiState.update { it.copy(paneB = it.paneB.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
             fileRepository.getFiles(path).collect { result ->
                 if (result is NovaResult.Success) {
                     val folders = result.data.filter { it.isDirectory }

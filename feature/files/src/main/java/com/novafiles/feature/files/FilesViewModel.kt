@@ -21,7 +21,7 @@ class FilesViewModel(
     initialPath: String? = null
 ) : ViewModel() {
 
-    private val rootPath = Environment.getExternalStorageDirectory().absolutePath
+    private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
     private val _uiState = MutableStateFlow(
         FilesUiState(
             currentPath = initialPath ?: rootPath,
