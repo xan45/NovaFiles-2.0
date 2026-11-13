@@ -97,6 +97,7 @@ import com.novafiles.feature.files.PdfViewerScreen
 import com.novafiles.feature.files.TextEditorScreen
 import com.novafiles.feature.ftp.FtpServerScreen
 import com.novafiles.feature.gallery.GalleryScreen
+import com.novafiles.feature.gallery.GalleryViewModel
 import com.novafiles.feature.music.MusicPlayerScreen
 import com.novafiles.feature.music.MusicPlayerViewModel
 import com.novafiles.feature.music.NovaMiniMusicPlayer
@@ -209,6 +210,14 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    private val galleryViewModel: GalleryViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                GalleryViewModel(application = application)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -228,6 +237,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         dualPaneViewModel = dualPaneViewModel,
                         musicViewModel = musicViewModel,
                         storageAnalyzerViewModel = storageAnalyzerViewModel,
+                        galleryViewModel = galleryViewModel,
                         themeConfig = themeConfig,
                         onThemeConfigChange = { settingsRepo.updateThemeConfig(it) },
                         fileRepository = fileRepository
@@ -244,6 +254,7 @@ fun NovaFilesMainApp(
     dualPaneViewModel: DualPaneViewModel,
     musicViewModel: MusicPlayerViewModel,
     storageAnalyzerViewModel: StorageAnalyzerViewModel,
+    galleryViewModel: GalleryViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     fileRepository: FileRepositoryImpl,
@@ -351,6 +362,7 @@ fun NovaFilesMainApp(
             }
             is ActiveScreen.Gallery -> {
                 GalleryScreen(
+                    viewModel = galleryViewModel,
                     onNavigateBack = { navigateBack() }
                 )
             }
