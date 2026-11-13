@@ -182,7 +182,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         viewModelFactory {
             initializer {
                 val handle = createSavedStateHandle()
-                MusicPlayerViewModel(fileRepository, handle)
+                MusicPlayerViewModel(
+                    fileRepository = fileRepository,
+                    context = applicationContext,
+                    savedStateHandle = handle
+                )
             }
         }
     }
@@ -239,6 +243,7 @@ fun NovaFilesMainApp(
                     hasPermission = granted
                     if (granted) {
                         filesViewModel.loadDirectory(filesViewModel.uiState.value.currentPath)
+                        musicViewModel.loadMusicLibrary(forceRefresh = true)
                     }
                 }
             }
@@ -382,7 +387,10 @@ fun NovaFilesMainApp(
                         musicState = playbackState,
                         onPlayPause = { MusicPlaybackManager.togglePlayPause() },
                         onNext = { MusicPlaybackManager.skipToNext() },
-                        onClick = { activeScreen = ActiveScreen.Music }
+                        onClick = {
+                            musicViewModel.expandNowPlaying()
+                            activeScreen = ActiveScreen.Music
+                        }
                     )
                 }
                 NovaNavigationBar(
@@ -429,7 +437,11 @@ fun NovaFilesMainApp(
                     onCategoryClick = { categoryName ->
                         when (categoryName) {
                             "Photos" -> activeScreen = ActiveScreen.Gallery()
-                            "Audio" -> activeScreen = ActiveScreen.Music
+                            "Audio" -> {
+                                musicViewModel.collapseNowPlaying()
+                                musicViewModel.loadMusicLibrary()
+                                activeScreen = ActiveScreen.Music
+                            }
                             "Videos" -> {
                                 val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
                                 filesViewModel.loadDirectory(targetDir)

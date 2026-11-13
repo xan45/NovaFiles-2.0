@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:navigation"))
     implementation(project(":core:media"))
+    implementation(project(":core:storage"))
     implementation(project(":data:files"))
 
     implementation(libs.androidx.media3.exoplayer)
