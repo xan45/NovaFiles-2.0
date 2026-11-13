@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.gallery
 
+import androidx.activity.compose.BackHandler
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -118,6 +119,14 @@ fun ImageViewerScreen(
         thumbListState.animateScrollToItem(
             (pagerState.currentPage - 2).coerceAtLeast(0)
         )
+    }
+
+    BackHandler {
+        when {
+            showInfoSheet -> showInfoSheet = false
+            showDeleteDialog -> showDeleteDialog = false
+            else -> onNavigateBack()
+        }
     }
 
     Box(

@@ -36,8 +36,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Sort
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -65,7 +63,6 @@ import com.novafiles.core.designsystem.theme.ColorNeonCyan
 import com.novafiles.core.designsystem.theme.ColorVioletSecondary
 import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.model.AccentColor
-import com.novafiles.core.model.SortBy
 import com.novafiles.core.model.ThemeConfig
 import com.novafiles.core.model.ThemeMode
 import com.novafiles.core.ui.components.NovaBottomSheet
@@ -84,7 +81,6 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
-    var showSortSheet by remember { mutableStateOf(false) }
     var showLicensesSheet by remember { mutableStateOf(false) }
 
     Box(
@@ -228,23 +224,6 @@ fun SettingsScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            // Show Hidden Files Switch
-                            SettingsToggleRow(
-                                title = "Show Hidden Files",
-                                subtitle = "Display .nomedia and system dotfiles",
-                                icon = Icons.Rounded.Visibility,
-                                checked = settings.showHiddenFiles,
-                                onCheckedChange = { viewModel.setShowHiddenFiles(it) }
-                            )
-
-                            // Default Sort Row
-                            SettingsActionRow(
-                                title = "Default Sort Order",
-                                subtitle = "${settings.defaultSortBy.name} (${if (settings.sortDirection.name == "ASCENDING") "Ascending" else "Descending"})",
-                                icon = Icons.Rounded.Sort,
-                                onClick = { showSortSheet = true }
-                            )
-
                             // Confirm Deletion Switch
                             SettingsToggleRow(
                                 title = "Confirm Deletions",
@@ -360,18 +339,6 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(100.dp))
                 }
             }
-        }
-
-        // Sort By Bottom Sheet
-        if (showSortSheet) {
-            SortSelectionSheet(
-                currentSort = settings.defaultSortBy,
-                onSelectSort = { sortBy ->
-                    viewModel.setDefaultSort(sortBy)
-                    showSortSheet = false
-                },
-                onDismiss = { showSortSheet = false }
-            )
         }
 
         // Open Source Licenses Sheet
@@ -517,60 +484,6 @@ private fun getAccentSwatchColor(accent: AccentColor): Color {
         AccentColor.CYAN -> Color(0xFF2DD4BF)
         AccentColor.AMBER -> Color(0xFFFFD166)
         AccentColor.PINK -> Color(0xFFF472B6)
-    }
-}
-
-@Composable
-private fun SortSelectionSheet(
-    currentSort: SortBy,
-    onSelectSort: (SortBy) -> Unit,
-    onDismiss: () -> Unit
-) {
-    NovaBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "Default File Sorting",
-                style = NovaTheme.typography.title,
-                color = NovaTheme.colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            SortBy.entries.forEach { sortBy ->
-                val isSelected = sortBy == currentSort
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) NovaTheme.colors.surfaceElevated else Color.Transparent)
-                        .clickable { onSelectSort(sortBy) }
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = sortBy.name.lowercase().replaceFirstChar { it.uppercase() },
-                        style = NovaTheme.typography.body,
-                        color = if (isSelected) NovaTheme.colors.primary else NovaTheme.colors.textPrimary,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                    )
-
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(NovaTheme.colors.primary)
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 

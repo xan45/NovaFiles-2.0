@@ -151,8 +151,14 @@ fun MusicPlayerScreen(
 ) {
     val isNowPlaying = uiState.isNowPlayingExpanded && uiState.playback.currentTrack != null
 
-    BackHandler(enabled = isNowPlaying) {
-        onCollapseNowPlaying()
+    BackHandler {
+        when {
+            uiState.selectedSubItemTitle != null -> onDismissSubItem()
+            uiState.isQueueSheetVisible -> onToggleQueue(false)
+            isNowPlaying -> onCollapseNowPlaying()
+            uiState.searchQuery.isNotBlank() -> onSearchQueryChange("")
+            else -> onNavigateBack()
+        }
     }
 
     Box(

@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.video
 
+import androidx.activity.compose.BackHandler
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.util.Rational
@@ -95,6 +96,14 @@ fun VideoPlayerScreen(
 
     LaunchedEffect(videoFilePath) {
         viewModel.loadVideo(videoFilePath)
+    }
+
+    BackHandler {
+        if (uiState.showTechnicalDetailsSheet) {
+            viewModel.dismissTechnicalDetailsSheet()
+        } else {
+            onNavigateBack()
+        }
     }
 
     // Keep screen on while playing video

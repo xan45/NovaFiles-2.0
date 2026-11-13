@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.vault
 
+import androidx.activity.compose.BackHandler
 import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,6 +91,10 @@ fun VaultScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    BackHandler {
+        onNavigateBack()
+    }
 
     // Block screenshots & recents thumbnails while Vault is open
     DisposableEffect(Unit) {

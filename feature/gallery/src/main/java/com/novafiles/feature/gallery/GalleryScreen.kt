@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.gallery
 
+import androidx.activity.compose.BackHandler
 import android.os.Environment
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -82,6 +83,14 @@ fun GalleryScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
+    BackHandler {
+        when {
+            uiState.isSelectionMode -> viewModel.clearSelection()
+            uiState.selectedAlbum != "All" -> viewModel.selectAlbum("All")
+            else -> onNavigateBack()
+        }
+    }
+
     // If active viewer is open, display full-screen viewer
     if (uiState.activeViewerIndex != null) {
         ImageViewerScreen(
@@ -122,6 +131,8 @@ fun GalleryScreen(
                     IconButton(onClick = {
                         if (uiState.isSelectionMode) {
                             viewModel.clearSelection()
+                        } else if (uiState.selectedAlbum != "All") {
+                            viewModel.selectAlbum("All")
                         } else {
                             onNavigateBack()
                         }

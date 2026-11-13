@@ -4,6 +4,7 @@
 
 package com.novafiles.feature.settings
 
+import androidx.activity.compose.BackHandler
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -88,6 +89,14 @@ fun AboutScreen(
 ) {
     val context = LocalContext.current
     var showOverflowMenu by remember { mutableStateOf(false) }
+
+    BackHandler {
+        if (showOverflowMenu) {
+            showOverflowMenu = false
+        } else {
+            onNavigateBack()
+        }
+    }
 
     // Dynamically retrieve application and package metadata
     val packageInfo = remember(context) {

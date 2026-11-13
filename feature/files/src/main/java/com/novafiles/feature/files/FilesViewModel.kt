@@ -1,5 +1,6 @@
 package com.novafiles.feature.files
 
+import android.content.Context
 import android.os.Environment
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -12,20 +13,22 @@ import com.novafiles.core.model.SortBy
 import com.novafiles.core.model.SortDirection
 import com.novafiles.core.storage.ArchiveEngine
 import com.novafiles.core.storage.FileOperationsEngine
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.FileInputStream
-import java.security.MessageDigest
 import com.novafiles.data.files.FileRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 
 class FilesViewModel(
     private val fileRepository: FileRepository,
+    context: Context? = null,
     private val savedStateHandle: SavedStateHandle? = null,
     initialPath: String? = null
 ) : ViewModel() {
@@ -34,21 +37,27 @@ class FilesViewModel(
         private const val KEY_CURRENT_PATH = "key_files_current_path"
         private const val KEY_SEARCH_QUERY = "key_files_search_query"
         private const val KEY_IS_GRID_VIEW = "key_files_is_grid_view"
+        private const val KEY_SHOW_HIDDEN = "key_files_show_hidden"
         private const val KEY_SORT_BY = "key_files_sort_by"
         private const val KEY_SORT_DIR = "key_files_sort_dir"
         private const val KEY_ACTIVE_FILTER = "key_files_active_filter"
         private const val KEY_SELECTED_IDS = "key_files_selected_ids"
     }
 
+    private val prefsRepo = context?.let { FilesPreferencesRepository(it) }
+    private val initialPrefs = prefsRepo?.preferences?.value ?: FilesPreferences()
+
     private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
     private val operationsEngine = FileOperationsEngine()
     private val archiveEngine = ArchiveEngine()
+    private var operationJob: Job? = null
 
     private val restoredPath = savedStateHandle?.get<String>(KEY_CURRENT_PATH) ?: initialPath ?: rootPath
     private val restoredQuery = savedStateHandle?.get<String>(KEY_SEARCH_QUERY) ?: ""
-    private val restoredGridView = savedStateHandle?.get<Boolean>(KEY_IS_GRID_VIEW) ?: false
-    private val restoredSortBy = savedStateHandle?.get<String>(KEY_SORT_BY)?.let { runCatching { SortBy.valueOf(it) }.getOrNull() } ?: SortBy.DATE
-    private val restoredSortDir = savedStateHandle?.get<String>(KEY_SORT_DIR)?.let { runCatching { SortDirection.valueOf(it) }.getOrNull() } ?: SortDirection.DESCENDING
+    private val restoredGridView = savedStateHandle?.get<Boolean>(KEY_IS_GRID_VIEW) ?: initialPrefs.isGridView
+    private val restoredShowHidden = savedStateHandle?.get<Boolean>(KEY_SHOW_HIDDEN) ?: initialPrefs.showHiddenFiles
+    private val restoredSortBy = savedStateHandle?.get<String>(KEY_SORT_BY)?.let { runCatching { SortBy.valueOf(it) }.getOrNull() } ?: initialPrefs.sortConfig.sortBy
+    private val restoredSortDir = savedStateHandle?.get<String>(KEY_SORT_DIR)?.let { runCatching { SortDirection.valueOf(it) }.getOrNull() } ?: initialPrefs.sortConfig.direction
     private val restoredFilter = savedStateHandle?.get<String>(KEY_ACTIVE_FILTER)?.let { runCatching { FileTypeFilter.valueOf(it) }.getOrNull() } ?: FileTypeFilter.ALL
     private val restoredSelectedIds = savedStateHandle?.get<ArrayList<String>>(KEY_SELECTED_IDS)?.toSet() ?: emptySet()
 
@@ -58,7 +67,8 @@ class FilesViewModel(
             breadcrumbs = buildBreadcrumbs(restoredPath),
             searchQuery = restoredQuery,
             isGridView = restoredGridView,
-            sortConfig = FileSortConfig(sortBy = restoredSortBy, direction = restoredSortDir),
+            showHiddenFiles = restoredShowHidden,
+            sortConfig = FileSortConfig(sortBy = restoredSortBy, direction = restoredSortDir, foldersFirst = true),
             activeFilter = restoredFilter,
             selectedIds = restoredSelectedIds,
             isSelectionMode = restoredSelectedIds.isNotEmpty(),
@@ -96,7 +106,8 @@ class FilesViewModel(
 
             fileRepository.getFiles(
                 directoryPath = path,
-                sortConfig = _uiState.value.sortConfig
+                sortConfig = _uiState.value.sortConfig,
+                showHidden = _uiState.value.showHiddenFiles
             ).collect { result ->
                 when (result) {
                     is NovaResult.Loading -> {
@@ -148,11 +159,27 @@ class FilesViewModel(
         }
     }
 
+    fun refresh() {
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
+    }
+
     fun navigateToFolder(path: String) {
         loadDirectory(path)
     }
 
+    fun canNavigateUp(): Boolean {
+        val current = File(_uiState.value.currentPath)
+        val canonicalCurrent = runCatching { current.canonicalPath }.getOrElse { current.absolutePath }
+        val canonicalRoot = runCatching { File(rootPath).canonicalPath }.getOrElse { rootPath }
+        if (canonicalCurrent == canonicalRoot || canonicalCurrent == "/storage/emulated/0" || canonicalCurrent == "/") {
+            return false
+        }
+        val parent = current.parentFile ?: return false
+        return parent.exists() && parent.canRead()
+    }
+
     fun navigateUp(): Boolean {
+        if (!canNavigateUp()) return false
         val current = File(_uiState.value.currentPath)
         val parent = current.parentFile
         if (parent != null && parent.exists() && parent.canRead()) {
@@ -196,23 +223,48 @@ class FilesViewModel(
         _uiState.update { it.copy(selectedIds = emptySet(), isSelectionMode = false) }
     }
 
-    fun setSortBy(sortBy: SortBy) {
-        val current = _uiState.value.sortConfig
-        val newDirection = if (current.sortBy == sortBy) {
-            if (current.direction == SortDirection.ASCENDING) SortDirection.DESCENDING else SortDirection.ASCENDING
-        } else {
-            SortDirection.DESCENDING
-        }
-        savedStateHandle?.set(KEY_SORT_BY, sortBy.name)
-        savedStateHandle?.set(KEY_SORT_DIR, newDirection.name)
-        _uiState.update { it.copy(sortConfig = current.copy(sortBy = sortBy, direction = newDirection)) }
+    fun toggleShowHiddenFiles() {
+        val newValue = !_uiState.value.showHiddenFiles
+        savedStateHandle?.set(KEY_SHOW_HIDDEN, newValue)
+        prefsRepo?.updateShowHiddenFiles(newValue)
+        _uiState.update { it.copy(showHiddenFiles = newValue) }
         loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun toggleLayoutMode() {
         val nextMode = !_uiState.value.isGridView
         savedStateHandle?.set(KEY_IS_GRID_VIEW, nextMode)
+        prefsRepo?.updateGridView(nextMode)
         _uiState.update { it.copy(isGridView = nextMode) }
+    }
+
+    fun setSortBy(sortBy: SortBy) {
+        val current = _uiState.value.sortConfig
+        val newDirection = if (current.sortBy == sortBy) {
+            if (current.direction == SortDirection.ASCENDING) SortDirection.DESCENDING else SortDirection.ASCENDING
+        } else {
+            SortDirection.ASCENDING
+        }
+        val newConfig = current.copy(sortBy = sortBy, direction = newDirection, foldersFirst = true)
+        savedStateHandle?.set(KEY_SORT_BY, sortBy.name)
+        savedStateHandle?.set(KEY_SORT_DIR, newDirection.name)
+        prefsRepo?.updateSortConfig(newConfig)
+        _uiState.update { it.copy(sortConfig = newConfig) }
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
+    }
+
+    fun toggleSortDirection() {
+        val current = _uiState.value.sortConfig
+        val nextDir = if (current.direction == SortDirection.ASCENDING) {
+            SortDirection.DESCENDING
+        } else {
+            SortDirection.ASCENDING
+        }
+        val newConfig = current.copy(direction = nextDir, foldersFirst = true)
+        savedStateHandle?.set(KEY_SORT_DIR, nextDir.name)
+        prefsRepo?.updateSortConfig(newConfig)
+        _uiState.update { it.copy(sortConfig = newConfig) }
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun setSearchQuery(query: String) {
@@ -254,12 +306,55 @@ class FilesViewModel(
         }
     }
 
+    fun copyFile(item: FileItem) {
+        _uiState.update {
+            it.copy(
+                clipboard = ClipboardState(files = listOf(item), op = ClipboardOp.COPY),
+                operationMessage = "Copied ${item.name} to clipboard"
+            )
+        }
+    }
+
+    fun cutFile(item: FileItem) {
+        _uiState.update {
+            it.copy(
+                clipboard = ClipboardState(files = listOf(item), op = ClipboardOp.MOVE),
+                operationMessage = "Cut ${item.name} to clipboard"
+            )
+        }
+    }
+
+    fun pasteIntoFolder(targetFolder: FileItem) {
+        val clip = _uiState.value.clipboard ?: return
+        val targetDir = File(targetFolder.path)
+        val sources = clip.files.map { File(it.path) }
+
+        operationJob = viewModelScope.launch {
+            _uiState.update { it.copy(isOperating = true, operationMessage = "Processing...") }
+            try {
+                if (clip.op == ClipboardOp.COPY) {
+                    operationsEngine.copyFiles(sources, targetDir).collect { progress ->
+                        _uiState.update { it.copy(operationMessage = "Copying ${progress.currentFileName} (${progress.processedCount}/${progress.totalCount})") }
+                    }
+                } else {
+                    operationsEngine.moveFiles(sources, targetDir).collect { progress ->
+                        _uiState.update { it.copy(operationMessage = "Moving ${progress.currentFileName} (${progress.processedCount}/${progress.totalCount})") }
+                    }
+                }
+                _uiState.update { it.copy(clipboard = null, isOperating = false, operationMessage = "Pasted into ${targetFolder.name}") }
+                loadDirectory(_uiState.value.currentPath)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isOperating = false, errorMessage = e.message ?: "Operation failed") }
+            }
+        }
+    }
+
     fun pasteClipboard() {
         val clip = _uiState.value.clipboard ?: return
         val targetDir = File(_uiState.value.currentPath)
         val sources = clip.files.map { File(it.path) }
 
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Processing...") }
             try {
                 if (clip.op == ClipboardOp.COPY) {
@@ -279,12 +374,40 @@ class FilesViewModel(
         }
     }
 
+    fun cancelOperation() {
+        operationJob?.cancel()
+        operationJob = null
+        _uiState.update { it.copy(isOperating = false, operationMessage = "Operation cancelled") }
+    }
+
+    fun deleteSingleFile(fileItem: FileItem) {
+        val target = File(fileItem.path)
+        operationJob = viewModelScope.launch {
+            _uiState.update { it.copy(isOperating = true, operationMessage = "Deleting ${fileItem.name}...") }
+            try {
+                operationsEngine.deleteFiles(listOf(target)).collect { progress ->
+                    _uiState.update { it.copy(operationMessage = "Deleting ${progress.currentFileName}...") }
+                }
+                _uiState.update {
+                    it.copy(
+                        selectedIds = it.selectedIds - fileItem.id,
+                        isOperating = false,
+                        operationMessage = "Deleted ${fileItem.name}"
+                    )
+                }
+                loadDirectory(_uiState.value.currentPath)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isOperating = false, errorMessage = e.message ?: "Delete failed") }
+            }
+        }
+    }
+
     fun deleteSelectedFiles() {
         val selectedFiles = getSelectedFileItems()
         if (selectedFiles.isEmpty()) return
         val targets = selectedFiles.map { File(it.path) }
 
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Deleting...") }
             try {
                 operationsEngine.deleteFiles(targets).collect { progress ->
@@ -339,24 +462,12 @@ class FilesViewModel(
         loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
-    fun toggleSortDirection() {
-        val current = _uiState.value.sortConfig
-        val nextDir = if (current.direction == SortDirection.ASCENDING) {
-            SortDirection.DESCENDING
-        } else {
-            SortDirection.ASCENDING
-        }
-        savedStateHandle?.set(KEY_SORT_DIR, nextDir.name)
-        _uiState.update { it.copy(sortConfig = current.copy(direction = nextDir)) }
-        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
-    }
-
     fun compressSelectedToZip(archiveName: String = "Archive_${System.currentTimeMillis()}.zip") {
         val selected = getSelectedFileItems().map { File(it.path) }
         if (selected.isEmpty()) return
         val safeName = if (archiveName.endsWith(".zip", ignoreCase = true)) archiveName else "$archiveName.zip"
         val targetZip = File(_uiState.value.currentPath, safeName)
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Creating $safeName...") }
             try {
                 withContext(Dispatchers.IO) {
@@ -375,10 +486,32 @@ class FilesViewModel(
         }
     }
 
+    fun compressSingleFile(fileItem: FileItem, archiveName: String) {
+        val targetFile = File(fileItem.path)
+        val safeName = if (archiveName.endsWith(".zip", ignoreCase = true)) archiveName else "$archiveName.zip"
+        val targetZip = File(_uiState.value.currentPath, safeName)
+        operationJob = viewModelScope.launch {
+            _uiState.update { it.copy(isOperating = true, operationMessage = "Creating $safeName...") }
+            try {
+                withContext(Dispatchers.IO) {
+                    archiveEngine.createZipArchive(listOf(targetFile), targetZip).collect { progress ->
+                        _uiState.update {
+                            it.copy(operationMessage = "Compressing ${progress.currentFileName} (${progress.processedCount}/${progress.totalCount})")
+                        }
+                    }
+                }
+                _uiState.update { it.copy(isOperating = false, operationMessage = "Created $safeName") }
+                loadDirectory(_uiState.value.currentPath)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isOperating = false, errorMessage = e.message ?: "Failed to create ZIP") }
+            }
+        }
+    }
+
     fun extractArchiveFile(fileItem: FileItem) {
         val archiveFile = File(fileItem.path)
         val destDir = File(_uiState.value.currentPath, archiveFile.nameWithoutExtension)
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Extracting ${fileItem.name}...") }
             try {
                 withContext(Dispatchers.IO) {
@@ -417,7 +550,7 @@ class FilesViewModel(
     fun extractSingleArchiveEntry(archiveItem: FileItem, entryName: String) {
         val archiveFile = File(archiveItem.path)
         val destDir = File(_uiState.value.currentPath)
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Extracting $entryName...") }
             try {
                 val outFile = archiveEngine.extractSingleEntry(archiveFile, entryName, destDir)
@@ -438,7 +571,7 @@ class FilesViewModel(
     ) {
         val selected = getSelectedFileItems()
         if (selected.isEmpty()) return
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Batch renaming ${selected.size} items...") }
             var renamedCount = 0
             selected.forEachIndexed { index, item ->
@@ -462,7 +595,7 @@ class FilesViewModel(
     fun moveToTrashSelected(trashDir: File) {
         val selected = getSelectedFileItems().map { File(it.path) }
         if (selected.isEmpty()) return
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             _uiState.update { it.copy(isOperating = true, operationMessage = "Moving ${selected.size} items to Trash...") }
             try {
                 if (!trashDir.exists()) trashDir.mkdirs()

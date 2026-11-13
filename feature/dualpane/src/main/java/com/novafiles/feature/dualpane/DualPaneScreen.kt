@@ -1,5 +1,6 @@
 package com.novafiles.feature.dualpane
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -68,8 +69,13 @@ fun DualPaneScreen(
     onSyncPanes: () -> Unit,
     onSwapPanes: () -> Unit,
     onFileClick: (FileItem) -> Unit = {},
+    canNavigateUp: Boolean = false,
+    onNavigateBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    BackHandler(enabled = canNavigateUp) {
+        onNavigateBack()
+    }
     Box(
         modifier = modifier
             .fillMaxSize()

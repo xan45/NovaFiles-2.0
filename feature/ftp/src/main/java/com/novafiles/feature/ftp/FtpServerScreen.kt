@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.ftp
 
+import androidx.activity.compose.BackHandler
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -78,6 +79,10 @@ fun FtpServerScreen(
     val isRunning = uiState.serverState.isRunning
     val ftpUrl = "ftp://${uiState.serverState.ipAddress}:${uiState.config.port}"
     val httpUrl = "http://${uiState.serverState.ipAddress}:${uiState.config.port + 1}"
+
+    BackHandler {
+        onNavigateBack()
+    }
 
     Box(
         modifier = modifier

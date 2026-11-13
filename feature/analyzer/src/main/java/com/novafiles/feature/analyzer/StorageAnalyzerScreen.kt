@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.analyzer
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -78,6 +79,14 @@ fun StorageAnalyzerScreen(
     onNavigateToCleaner: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    BackHandler {
+        when {
+            uiState.selectedCategory != null -> viewModel.selectCategory(null)
+            uiState.showDeletedSheet -> viewModel.toggleDeletedSheet(false)
+            else -> onNavigateBack()
+        }
+    }
 
     Box(
         modifier = modifier

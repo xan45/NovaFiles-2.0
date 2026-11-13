@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.cleaner
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -80,6 +81,10 @@ fun StorageCleanerScreen(
     viewModel: StorageCleanerViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    BackHandler {
+        onNavigateBack()
+    }
 
     Box(
         modifier = modifier

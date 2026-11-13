@@ -1,5 +1,6 @@
 package com.novafiles.feature.files
 
+import androidx.activity.compose.BackHandler
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
@@ -75,6 +76,10 @@ fun PdfViewerScreen(
     var zoomScale by rememberSaveable { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
     val renderMutex = remember { Mutex() }
+
+    BackHandler {
+        onNavigateBack()
+    }
 
     val rendererHolder = remember(filePath) {
         try {

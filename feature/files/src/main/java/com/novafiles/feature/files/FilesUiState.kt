@@ -34,6 +34,7 @@ data class FilesUiState(
     val isSelectionMode: Boolean = false,
     val sortConfig: FileSortConfig = FileSortConfig(),
     val isGridView: Boolean = false,
+    val showHiddenFiles: Boolean = false,
     val isLoading: Boolean = false,
     val isOperating: Boolean = false,
     val operationMessage: String? = null,
@@ -45,5 +46,6 @@ data class FilesUiState(
     val hasStoragePermission: Boolean = true
 ) {
     val selectedCount: Int get() = selectedIds.size
+    val allItems: List<FileItem> get() = folders + files
     val isAllSelected: Boolean get() = (folders.size + files.size) > 0 && selectedIds.size == (folders.size + files.size)
 }

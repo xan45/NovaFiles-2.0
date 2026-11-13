@@ -201,6 +201,45 @@ class DualPaneViewModel(
         loadPaneB(pathA)
     }
 
+    fun canNavigateUp(): Boolean {
+        val isPaneA = _uiState.value.activePane == ActivePane.PANE_A
+        val activeState = if (isPaneA) _uiState.value.paneA else _uiState.value.paneB
+        if (activeState.isSelectionMode) return true
+        val current = File(activeState.currentPath)
+        val canonicalCurrent = runCatching { current.canonicalPath }.getOrElse { current.absolutePath }
+        val canonicalRoot = runCatching { File(rootPath).canonicalPath }.getOrElse { rootPath }
+        if (canonicalCurrent == canonicalRoot || canonicalCurrent == "/storage/emulated/0" || canonicalCurrent == "/") {
+            return false
+        }
+        val parent = current.parentFile ?: return false
+        return parent.exists() && parent.canRead()
+    }
+
+    fun navigateUp(): Boolean {
+        val isPaneA = _uiState.value.activePane == ActivePane.PANE_A
+        val activeState = if (isPaneA) _uiState.value.paneA else _uiState.value.paneB
+        if (activeState.isSelectionMode) {
+            if (isPaneA) {
+                _uiState.update { it.copy(paneA = it.paneA.copy(selectedIds = emptySet(), isSelectionMode = false)) }
+            } else {
+                _uiState.update { it.copy(paneB = it.paneB.copy(selectedIds = emptySet(), isSelectionMode = false)) }
+            }
+            return true
+        }
+        val current = File(activeState.currentPath)
+        val canonicalCurrent = runCatching { current.canonicalPath }.getOrElse { current.absolutePath }
+        val canonicalRoot = runCatching { File(rootPath).canonicalPath }.getOrElse { rootPath }
+        if (canonicalCurrent == canonicalRoot || canonicalCurrent == "/storage/emulated/0" || canonicalCurrent == "/") {
+            return false
+        }
+        val parent = current.parentFile
+        if (parent != null && parent.exists() && parent.canRead()) {
+            if (isPaneA) loadPaneA(parent.absolutePath) else loadPaneB(parent.absolutePath)
+            return true
+        }
+        return false
+    }
+
     private fun buildBreadcrumbs(path: String): List<BreadcrumbItem> {
         val items = mutableListOf<BreadcrumbItem>()
         var current: File? = File(path)

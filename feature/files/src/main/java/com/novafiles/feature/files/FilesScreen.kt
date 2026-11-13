@@ -1,5 +1,7 @@
 package com.novafiles.feature.files
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,33 +35,52 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,31 +89,30 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import android.widget.Toast
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.novafiles.core.common.FileFormatters
-import kotlinx.coroutines.launch
-import java.io.File
 import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.model.FileItem
 import com.novafiles.core.model.FileType
-import com.novafiles.core.ui.components.NovaBottomSheet
 import com.novafiles.core.model.SortBy
 import com.novafiles.core.model.SortDirection
-import com.novafiles.core.ui.components.NovaConfirmDialog
-import com.novafiles.core.ui.components.NovaInputDialog
+import com.novafiles.core.ui.components.NovaBottomSheet
 import com.novafiles.core.ui.components.NovaButton
 import com.novafiles.core.ui.components.NovaButtonVariant
-import androidx.compose.material3.ExperimentalMaterial3Api
+import com.novafiles.core.ui.components.NovaConfirmDialog
 import com.novafiles.core.ui.components.NovaEmptyState
 import com.novafiles.core.ui.components.NovaErrorState
+import com.novafiles.core.ui.components.NovaFileGridItem
 import com.novafiles.core.ui.components.NovaFileRow
-import com.novafiles.core.ui.components.NovaFolderCard
+import com.novafiles.core.ui.components.NovaInputDialog
 import com.novafiles.core.ui.components.NovaLoadingState
+import kotlinx.coroutines.launch
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,6 +127,8 @@ fun FilesScreen(
     onSortChange: (SortBy) -> Unit,
     onToggleLayout: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit = {},
+    onToggleShowHidden: () -> Unit = {},
     onCopy: () -> Unit = {},
     onMove: () -> Unit = {},
     onPaste: () -> Unit = {},
@@ -124,23 +146,85 @@ fun FilesScreen(
     onMoveToTrash: (File) -> Unit = {},
     onToggleBookmark: (String, String) -> Unit = { _, _ -> },
     onComputeSha256: suspend (String) -> String = { "" },
+    onCopySingleFile: (FileItem) -> Unit = {},
+    onCutSingleFile: (FileItem) -> Unit = {},
+    onDeleteSingleFile: (FileItem) -> Unit = {},
+    onPasteIntoFolder: (FileItem) -> Unit = {},
+    onCompressSingleFile: (FileItem, String) -> Unit = { _, _ -> },
+    onCancelOperation: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
-    var showCreateFolderDialog by rememberSaveable { mutableStateOf(false) }
-    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
-    var fileToRename by rememberSaveable { mutableStateOf<FileItem?>(null) }
-    var sortMenuExpanded by rememberSaveable { mutableStateOf(false) }
-    var showSearchField by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotBlank()) }
-    var showMoreActionsSheet by rememberSaveable { mutableStateOf(false) }
-    var showCreateZipDialog by rememberSaveable { mutableStateOf(false) }
-    var showBatchRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var activeContextMenuItem by rememberSaveable { mutableStateOf<FileItem?>(null) }
     var fileForDetails by rememberSaveable { mutableStateOf<FileItem?>(null) }
     var archiveToBrowse by rememberSaveable { mutableStateOf<FileItem?>(null) }
     var apkToInspect by rememberSaveable { mutableStateOf<FileItem?>(null) }
+
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var showSingleDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var fileToDelete by rememberSaveable { mutableStateOf<FileItem?>(null) }
+
+    var showCreateFolderDialog by rememberSaveable { mutableStateOf(false) }
+    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var fileToRename by rememberSaveable { mutableStateOf<FileItem?>(null) }
+
+    var showCreateZipDialog by rememberSaveable { mutableStateOf(false) }
+    var fileToCompress by rememberSaveable { mutableStateOf<FileItem?>(null) }
+
+    var showBatchRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var showMoreActionsSheet by rememberSaveable { mutableStateOf(false) }
+    var showBrowsingSettingsSheet by rememberSaveable { mutableStateOf(false) }
+    var showBookmarksSheet by rememberSaveable { mutableStateOf(false) }
+
+    var showSearchField by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotBlank()) }
+    var overflowMenuExpanded by rememberSaveable { mutableStateOf(false) }
+
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val uiScope = rememberCoroutineScope()
+
+    val hasModalOpen = activeContextMenuItem != null || fileForDetails != null || archiveToBrowse != null ||
+            apkToInspect != null || showDeleteConfirm || showSingleDeleteConfirm || showCreateFolderDialog ||
+            showRenameDialog || showCreateZipDialog || showBatchRenameDialog || showMoreActionsSheet ||
+            showBrowsingSettingsSheet || showBookmarksSheet || overflowMenuExpanded
+
+    val canGoBackInFiles = hasModalOpen || uiState.isSelectionMode || showSearchField || uiState.breadcrumbs.size > 1
+
+    BackHandler(enabled = canGoBackInFiles) {
+        when {
+            activeContextMenuItem != null -> activeContextMenuItem = null
+            fileForDetails != null -> fileForDetails = null
+            archiveToBrowse != null -> archiveToBrowse = null
+            apkToInspect != null -> apkToInspect = null
+            showDeleteConfirm -> showDeleteConfirm = false
+            showSingleDeleteConfirm -> {
+                showSingleDeleteConfirm = false
+                fileToDelete = null
+            }
+            showCreateFolderDialog -> showCreateFolderDialog = false
+            showRenameDialog -> {
+                showRenameDialog = false
+                fileToRename = null
+            }
+            showCreateZipDialog -> {
+                showCreateZipDialog = false
+                fileToCompress = null
+            }
+            showBatchRenameDialog -> showBatchRenameDialog = false
+            showMoreActionsSheet -> showMoreActionsSheet = false
+            showBrowsingSettingsSheet -> showBrowsingSettingsSheet = false
+            showBookmarksSheet -> showBookmarksSheet = false
+            overflowMenuExpanded -> overflowMenuExpanded = false
+            uiState.isSelectionMode -> onClearSelection()
+            showSearchField -> {
+                showSearchField = false
+                onSearchQueryChange("")
+            }
+            uiState.breadcrumbs.size > 1 -> onNavigateBack()
+        }
+    }
+
+    val currentFolder = uiState.breadcrumbs.lastOrNull()
+    val isCurrentFolderBookmarked = uiState.bookmarks.any { it.path == uiState.currentPath }
 
     Box(
         modifier = modifier
@@ -152,7 +236,7 @@ fun FilesScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Header: Switches between Standard Mode and Selection Mode per design reference
+            // Header: Selection Mode vs Normal Mode
             if (uiState.isSelectionMode) {
                 SelectionHeader(
                     selectedCount = uiState.selectedCount,
@@ -162,57 +246,58 @@ fun FilesScreen(
                 )
             } else {
                 StandardHeader(
-                    breadcrumbs = uiState.breadcrumbs,
+                    folderTitle = currentFolder?.name ?: "Files",
+                    folderPath = uiState.currentPath,
                     isGridView = uiState.isGridView,
                     searchQuery = uiState.searchQuery,
                     isSearching = showSearchField,
+                    canNavigateUp = uiState.breadcrumbs.size > 1,
+                    isBookmarked = isCurrentFolderBookmarked,
+                    onNavigateBack = onNavigateBack,
                     onToggleSearch = {
                         showSearchField = !showSearchField
                         if (!showSearchField) onSearchQueryChange("")
                     },
                     onSearchQueryChange = onSearchQueryChange,
-                    onBreadcrumbClick = onFolderClick,
-                    onToggleLayout = onToggleLayout,
-                    isBookmarked = uiState.bookmarks.any { it.path == uiState.currentPath },
+                    onOpenSettings = { showBrowsingSettingsSheet = true },
+                    onCreateFolder = { showCreateFolderDialog = true },
                     onToggleBookmark = {
-                        val name = uiState.breadcrumbs.lastOrNull()?.name ?: File(uiState.currentPath).name
+                        val name = currentFolder?.name ?: "Folder"
                         onToggleBookmark(uiState.currentPath, name)
-                    }
+                    },
+                    overflowMenuExpanded = overflowMenuExpanded,
+                    onDismissOverflow = { overflowMenuExpanded = false },
+                    onOpenOverflow = { overflowMenuExpanded = true },
+                    showHiddenFiles = uiState.showHiddenFiles,
+                    onToggleShowHidden = onToggleShowHidden,
+                    onOpenBookmarks = { showBookmarksSheet = true },
+                    onRefresh = onRefresh
                 )
             }
 
-            // Pinned Bookmarks Quick-Jump Bar
-            if (uiState.bookmarks.isNotEmpty() && !uiState.isSelectionMode) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    uiState.bookmarks.forEach { bm ->
-                        val isCurrent = bm.path == uiState.currentPath
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isCurrent) NovaTheme.colors.primary.copy(alpha = 0.2f) else NovaTheme.colors.surface)
-                                .clickable { onFolderClick(bm.path) }
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = if (isCurrent) NovaTheme.colors.primary else NovaTheme.colors.textTertiary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = bm.name,
-                                style = NovaTheme.typography.caption,
-                                color = if (isCurrent) NovaTheme.colors.primary else NovaTheme.colors.textSecondary
-                            )
-                        }
+            // Breadcrumb Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                uiState.breadcrumbs.forEachIndexed { index, crumb ->
+                    val isLast = index == uiState.breadcrumbs.size - 1
+                    Text(
+                        text = crumb.name,
+                        style = NovaTheme.typography.captionMedium,
+                        color = if (isLast) NovaTheme.colors.primary else NovaTheme.colors.textSecondary,
+                        modifier = Modifier.clickable { onFolderClick(crumb.path) }
+                    )
+                    if (!isLast) {
+                        Text(
+                            text = " > ",
+                            style = NovaTheme.typography.caption,
+                            color = NovaTheme.colors.textTertiary,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
                     }
                 }
             }
@@ -248,7 +333,7 @@ fun FilesScreen(
                 }
             }
 
-            // Main Content Area
+            // Main Content: Unified Folder and File Listing
             when {
                 uiState.isLoading -> {
                     NovaLoadingState(modifier = Modifier.weight(1f))
@@ -263,231 +348,149 @@ fun FilesScreen(
                 uiState.folders.isEmpty() && uiState.files.isEmpty() -> {
                     NovaEmptyState(
                         title = "Folder is empty",
-                        subtitle = "No files or subdirectories found here",
+                        subtitle = if (uiState.searchQuery.isNotBlank()) "No files match '${uiState.searchQuery}'" else "No items in this directory",
                         modifier = Modifier.weight(1f)
                     )
                 }
                 uiState.isGridView -> {
-                    val combinedItems = uiState.folders + uiState.files
+                    // Unified Grid View
+                    val allItems = uiState.folders + uiState.files
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 148.dp),
+                        columns = GridCells.Adaptive(minSize = 110.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 16.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(combinedItems, key = { it.id }) { item ->
+                        items(allItems, key = { it.id }) { item ->
                             val isSelected = uiState.selectedIds.contains(item.id)
-                            if (item.isDirectory) {
-                                NovaFolderCard(
-                                    name = item.name,
-                                    itemCount = item.itemCount ?: 0,
-                                    dateText = FileFormatters.formatDate(item.lastModifiedMs),
-                                    isSelected = isSelected,
-                                    cardColor = NovaTheme.colors.surfaceElevated,
-                                    folderIconColor = NovaTheme.colors.categoryFolders,
-                                    onClick = {
-                                        if (uiState.isSelectionMode) {
-                                            onToggleSelect(item.id)
-                                        } else {
-                                            onFolderClick(item.path)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(NovaTheme.shapes.large)
-                                        .background(NovaTheme.colors.surfaceElevated)
-                                        .border(
-                                            width = if (isSelected) 2.dp else 1.dp,
-                                            color = if (isSelected) NovaTheme.colors.primary else NovaTheme.colors.cardBorder,
-                                            shape = NovaTheme.shapes.large
-                                        )
-                                        .padding(8.dp)
-                                ) {
-                                    NovaFileRow(
-                                        item = item,
-                                        formattedSize = FileFormatters.formatBytes(item.sizeBytes),
-                                        formattedDate = FileFormatters.formatDate(item.lastModifiedMs),
-                                        onClick = {
-                                            if (uiState.isSelectionMode) {
-                                                onToggleSelect(item.id)
-                                            } else if (item.fileType == FileType.ARCHIVE || item.name.endsWith(".zip", true) || item.name.endsWith(".tar", true) || item.name.endsWith(".tar.gz", true) || item.name.endsWith(".tgz", true)) {
-                                                archiveToBrowse = item
-                                            } else if (item.fileType == FileType.APK || item.name.endsWith(".apk", true)) {
-                                                apkToInspect = item
-                                            } else {
-                                                onFileClick(item)
-                                            }
-                                        },
-                                        onMenuClick = { onToggleSelect(item.id) }
-                                    )
-                                }
-                            }
+                            NovaFileGridItem(
+                                item = item,
+                                isSelected = isSelected,
+                                isSelectionMode = uiState.isSelectionMode,
+                                formattedSize = FileFormatters.formatBytes(item.sizeBytes),
+                                formattedDate = FileFormatters.formatDate(item.lastModifiedMs),
+                                onClick = {
+                                    if (uiState.isSelectionMode) {
+                                        onToggleSelect(item.id)
+                                    } else if (item.isDirectory) {
+                                        onFolderClick(item.path)
+                                    } else if (item.fileType == FileType.ARCHIVE || item.name.endsWith(".zip", true) || item.name.endsWith(".tar", true) || item.name.endsWith(".tar.gz", true) || item.name.endsWith(".tgz", true)) {
+                                        archiveToBrowse = item
+                                    } else if (item.fileType == FileType.APK || item.name.endsWith(".apk", true)) {
+                                        apkToInspect = item
+                                    } else {
+                                        onFileClick(item)
+                                    }
+                                },
+                                onLongClick = { onToggleSelect(item.id) },
+                                onMenuClick = { activeContextMenuItem = item }
+                            )
                         }
                     }
                 }
                 else -> {
+                    // Unified List View (Default)
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 16.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp)
                     ) {
-                        // Horizontal Folders Section (if folders exist)
+                        // Folders section
                         if (uiState.folders.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "Folders",
-                                    style = NovaTheme.typography.subtitle,
-                                    color = NovaTheme.colors.textPrimary
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
+                            item(key = "header_folders") {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    uiState.folders.forEach { folder ->
-                                        val isSelected = uiState.selectedIds.contains(folder.id)
-                                        NovaFolderCard(
-                                            name = folder.name,
-                                            itemCount = folder.itemCount ?: 0,
-                                            dateText = FileFormatters.formatDate(folder.lastModifiedMs),
-                                            isSelected = isSelected,
-                                            cardColor = NovaTheme.colors.surfaceElevated,
-                                            folderIconColor = NovaTheme.colors.categoryFolders,
-                                            onClick = {
-                                                if (uiState.isSelectionMode) {
-                                                    onToggleSelect(folder.id)
-                                                } else {
-                                                    onFolderClick(folder.path)
-                                                }
-                                            }
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = NovaTheme.colors.categoryFolders,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Folders (${uiState.folders.size})",
+                                        style = NovaTheme.typography.captionMedium,
+                                        color = NovaTheme.colors.textSecondary
+                                    )
                                 }
+                            }
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                            items(uiState.folders, key = { it.id }) { folder ->
+                                val isSelected = uiState.selectedIds.contains(folder.id)
+                                NovaFileRow(
+                                    item = folder,
+                                    isSelected = isSelected,
+                                    isSelectionMode = uiState.isSelectionMode,
+                                    formattedSize = "",
+                                    formattedDate = FileFormatters.formatDate(folder.lastModifiedMs),
+                                    onClick = {
+                                        if (uiState.isSelectionMode) {
+                                            onToggleSelect(folder.id)
+                                        } else {
+                                            onFolderClick(folder.path)
+                                        }
+                                    },
+                                    onLongClick = { onToggleSelect(folder.id) },
+                                    onMenuClick = { activeContextMenuItem = folder }
+                                )
                             }
                         }
 
-                        // Files Section Header with Sort Dropdown
+                        // Files section immediately below folders
                         if (uiState.files.isNotEmpty()) {
-                            item {
+                            item(key = "header_files") {
+                                Spacer(modifier = Modifier.height(10.dp))
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Sort,
+                                        contentDescription = null,
+                                        tint = NovaTheme.colors.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = "Files (${uiState.files.size})",
-                                        style = NovaTheme.typography.subtitle,
-                                        color = NovaTheme.colors.textPrimary
+                                        style = NovaTheme.typography.captionMedium,
+                                        color = NovaTheme.colors.textSecondary
                                     )
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(
-                                            onClick = onToggleSortDirection,
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = if (uiState.sortConfig.direction == SortDirection.ASCENDING) {
-                                                    Icons.Default.ArrowUpward
-                                                } else {
-                                                    Icons.Default.ArrowDownward
-                                                },
-                                                contentDescription = "Toggle Sort Direction",
-                                                tint = NovaTheme.colors.textSecondary,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                        Box {
-                                            Row(
-                                                modifier = Modifier
-                                                    .clip(NovaTheme.shapes.small)
-                                                    .clickable { sortMenuExpanded = true }
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = uiState.sortConfig.sortBy.name.lowercase().replaceFirstChar { it.uppercase() },
-                                                    style = NovaTheme.typography.captionMedium,
-                                                    color = NovaTheme.colors.textSecondary
-                                                )
-                                                Icon(
-                                                    imageVector = Icons.Default.ArrowDropDown,
-                                                    contentDescription = "Sort Options",
-                                                    tint = NovaTheme.colors.textSecondary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-
-                                        DropdownMenu(
-                                            expanded = sortMenuExpanded,
-                                            onDismissRequest = { sortMenuExpanded = false }
-                                        ) {
-                                            SortBy.entries.forEach { sortBy ->
-                                                DropdownMenuItem(
-                                                    text = { Text(sortBy.name) },
-                                                    onClick = {
-                                                        sortMenuExpanded = false
-                                                        onSortChange(sortBy)
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                        }
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
                             }
 
-                            // Files List
                             items(uiState.files, key = { it.id }) { file ->
                                 val isSelected = uiState.selectedIds.contains(file.id)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        NovaFileRow(
-                                            item = file,
-                                            formattedSize = FileFormatters.formatBytes(file.sizeBytes),
-                                            formattedDate = FileFormatters.formatDate(file.lastModifiedMs),
-                                            onClick = {
-                                                if (uiState.isSelectionMode) {
-                                                    onToggleSelect(file.id)
-                                                } else if (file.fileType == FileType.ARCHIVE || file.name.endsWith(".zip", true) || file.name.endsWith(".tar", true) || file.name.endsWith(".tar.gz", true) || file.name.endsWith(".tgz", true)) {
-                                                    archiveToBrowse = file
-                                                } else if (file.fileType == FileType.APK || file.name.endsWith(".apk", true)) {
-                                                    apkToInspect = file
-                                                } else {
-                                                    onFileClick(file)
-                                                }
-                                            },
-                                            onMenuClick = { onToggleSelect(file.id) }
-                                        )
-                                    }
-
-                                    if (uiState.isSelectionMode) {
-                                        Checkbox(
-                                            checked = isSelected,
-                                            onCheckedChange = { onToggleSelect(file.id) },
-                                            colors = CheckboxDefaults.colors(
-                                                checkedColor = NovaTheme.colors.primary,
-                                                uncheckedColor = NovaTheme.colors.cardBorder
-                                            )
-                                        )
-                                    }
-                                }
+                                NovaFileRow(
+                                    item = file,
+                                    isSelected = isSelected,
+                                    isSelectionMode = uiState.isSelectionMode,
+                                    formattedSize = FileFormatters.formatBytes(file.sizeBytes),
+                                    formattedDate = FileFormatters.formatDate(file.lastModifiedMs),
+                                    onClick = {
+                                        if (uiState.isSelectionMode) {
+                                            onToggleSelect(file.id)
+                                        } else if (file.fileType == FileType.ARCHIVE || file.name.endsWith(".zip", true) || file.name.endsWith(".tar", true) || file.name.endsWith(".tar.gz", true) || file.name.endsWith(".tgz", true)) {
+                                            archiveToBrowse = file
+                                        } else if (file.fileType == FileType.APK || file.name.endsWith(".apk", true)) {
+                                            apkToInspect = file
+                                        } else {
+                                            onFileClick(file)
+                                        }
+                                    },
+                                    onLongClick = { onToggleSelect(file.id) },
+                                    onMenuClick = { activeContextMenuItem = file }
+                                )
                             }
                         }
                     }
@@ -495,155 +498,246 @@ fun FilesScreen(
             }
         }
 
-        // Floating Action Button (+) for Add/Create Folder
-        if (!uiState.isSelectionMode && uiState.clipboard == null) {
-            FloatingActionButton(
-                onClick = { showCreateFolderDialog = true },
-                containerColor = NovaTheme.colors.primary,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = 96.dp)
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Create Folder")
-            }
-        }
-
-        // Clipboard Floating Paste Action Bar
-        if (uiState.clipboard != null) {
+        // Floating Clipboard Dock (Paste & Clear)
+        AnimatedVisibility(
+            visible = uiState.clipboard != null && !uiState.isSelectionMode,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 90.dp)
+        ) {
+            val clip = uiState.clipboard ?: return@AnimatedVisibility
             Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 96.dp)
-                    .clip(NovaTheme.shapes.extraLarge)
+                    .shadow(NovaTheme.elevation.level4, NovaTheme.shapes.pill)
+                    .clip(NovaTheme.shapes.pill)
                     .background(NovaTheme.colors.surfaceElevated)
-                    .border(1.dp, NovaTheme.colors.primary, NovaTheme.shapes.extraLarge)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .border(1.dp, NovaTheme.colors.primary.copy(alpha = 0.5f), NovaTheme.shapes.pill)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.ContentCopy,
+                    imageVector = if (clip.op == ClipboardOp.COPY) Icons.Default.ContentCopy else Icons.AutoMirrored.Filled.DriveFileMove,
                     contentDescription = null,
                     tint = NovaTheme.colors.primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = "${uiState.clipboard.files.size} ready to ${uiState.clipboard.op.name.lowercase()}",
+                    text = "${clip.files.size} item(s) (${if (clip.op == ClipboardOp.COPY) "Copy" else "Cut"})",
                     style = NovaTheme.typography.captionMedium,
                     color = NovaTheme.colors.textPrimary
                 )
                 NovaButton(
                     text = "Paste",
                     onClick = onPaste,
-                    variant = NovaButtonVariant.PRIMARY
+                    variant = NovaButtonVariant.PRIMARY,
+                    modifier = Modifier.height(34.dp)
                 )
-                NovaButton(
-                    text = "Cancel",
+                IconButton(
                     onClick = onClearClipboard,
-                    variant = NovaButtonVariant.SECONDARY
-                )
-            }
-        }
-
-        // Selection Bottom Action Dock (Copy, Move, Delete, Rename)
-        AnimatedVisibility(
-            visible = uiState.isSelectionMode,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 20.dp)
-        ) {
-            SelectionBottomDock(
-                onCopy = onCopy,
-                onMove = onMove,
-                onDelete = { showDeleteConfirm = true },
-                onEdit = {
-                    if (uiState.selectedCount > 1) {
-                        showBatchRenameDialog = true
-                    } else {
-                        val item = (uiState.folders + uiState.files).firstOrNull { uiState.selectedIds.contains(it.id) }
-                        if (item != null) {
-                            fileToRename = item
-                            showRenameDialog = true
-                        }
-                    }
-                },
-                onMore = { showMoreActionsSheet = true }
-            )
-        }
-
-        // Delete / Move to Trash Confirmation Sheet
-        if (showDeleteConfirm) {
-            NovaBottomSheet(onDismissRequest = { showDeleteConfirm = false }) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Text(
-                        text = "Delete ${uiState.selectedCount} selected items?",
-                        style = NovaTheme.typography.title,
-                        color = NovaTheme.colors.textPrimary
-                    )
-                    Text(
-                        text = "Move to Trash to keep them recoverable for 30 days, or delete permanently.",
-                        style = NovaTheme.typography.caption,
-                        color = NovaTheme.colors.textSecondary
-                    )
-                    NovaButton(
-                        text = "Move to Trash (Recoverable)",
-                        onClick = {
-                            showDeleteConfirm = false
-                            onMoveToTrash(File(context.filesDir, "trash"))
-                        },
-                        variant = NovaButtonVariant.PRIMARY,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    NovaButton(
-                        text = "Delete Permanently",
-                        onClick = {
-                            showDeleteConfirm = false
-                            onDelete()
-                        },
-                        variant = NovaButtonVariant.SECONDARY,
-                        modifier = Modifier.fillMaxWidth()
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear clipboard",
+                        tint = NovaTheme.colors.textSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
 
-        // Create Folder Dialog Modal
+        // Floating Multi-Selection Action Dock
+        AnimatedVisibility(
+            visible = uiState.isSelectionMode,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 90.dp)
+        ) {
+            SelectionBottomDock(
+                onCopy = onCopy,
+                onMove = onMove,
+                onDelete = { showDeleteConfirm = true },
+                onShare = {
+                    val selectedItems = (uiState.folders + uiState.files).filter { uiState.selectedIds.contains(it.id) }
+                    FileActionHelper.shareFiles(context, selectedItems)
+                },
+                onCompress = {
+                    fileToCompress = null
+                    showCreateZipDialog = true
+                },
+                onMore = { showMoreActionsSheet = true }
+            )
+        }
+
+        // BUG-004: Context Menu Bottom Sheet
+        if (activeContextMenuItem != null) {
+            val item = activeContextMenuItem!!
+            FileItemContextMenuSheet(
+                item = item,
+                clipboard = uiState.clipboard,
+                isBookmarked = uiState.bookmarks.any { it.path == item.path },
+                onDismiss = { activeContextMenuItem = null },
+                onOpen = {
+                    activeContextMenuItem = null
+                    if (item.isDirectory) {
+                        onFolderClick(item.path)
+                    } else if (item.fileType == FileType.ARCHIVE || item.name.endsWith(".zip", true) || item.name.endsWith(".tar", true) || item.name.endsWith(".tar.gz", true) || item.name.endsWith(".tgz", true)) {
+                        archiveToBrowse = item
+                    } else if (item.fileType == FileType.APK || item.name.endsWith(".apk", true)) {
+                        apkToInspect = item
+                    } else {
+                        onFileClick(item)
+                    }
+                },
+                onOpenWith = {
+                    activeContextMenuItem = null
+                    FileActionHelper.openWith(context, item)
+                },
+                onCut = {
+                    activeContextMenuItem = null
+                    onCutSingleFile(item)
+                },
+                onCopy = {
+                    activeContextMenuItem = null
+                    onCopySingleFile(item)
+                },
+                onPasteInto = {
+                    activeContextMenuItem = null
+                    onPasteIntoFolder(item)
+                },
+                onRename = {
+                    activeContextMenuItem = null
+                    fileToRename = item
+                    showRenameDialog = true
+                },
+                onDelete = {
+                    activeContextMenuItem = null
+                    fileToDelete = item
+                    showSingleDeleteConfirm = true
+                },
+                onShare = {
+                    activeContextMenuItem = null
+                    FileActionHelper.shareFile(context, item)
+                },
+                onProperties = {
+                    activeContextMenuItem = null
+                    fileForDetails = item
+                },
+                onToggleBookmark = {
+                    activeContextMenuItem = null
+                    onToggleBookmark(item.path, item.name)
+                },
+                onCompress = {
+                    activeContextMenuItem = null
+                    fileToCompress = item
+                    showCreateZipDialog = true
+                },
+                onExtract = {
+                    activeContextMenuItem = null
+                    onExtractArchive(item)
+                },
+                onSelect = {
+                    activeContextMenuItem = null
+                    onToggleSelect(item.id)
+                }
+            )
+        }
+
+        // Browsing Settings Sheet (Contextual Settings)
+        if (showBrowsingSettingsSheet) {
+            BrowsingSettingsSheet(
+                isGridView = uiState.isGridView,
+                showHiddenFiles = uiState.showHiddenFiles,
+                sortConfig = uiState.sortConfig,
+                onToggleLayout = onToggleLayout,
+                onToggleShowHidden = onToggleShowHidden,
+                onSelectSortBy = onSortChange,
+                onToggleSortDirection = onToggleSortDirection,
+                onDismiss = { showBrowsingSettingsSheet = false }
+            )
+        }
+
+        // Operation Progress Dialog with Cancellation
+        if (uiState.isOperating) {
+            NovaConfirmDialog(
+                title = "File Operation",
+                message = uiState.operationMessage ?: "Processing, please wait...",
+                confirmText = "Dismiss",
+                cancelText = "Cancel Operation",
+                onConfirm = { /* keep running in background */ },
+                onDismiss = { onCancelOperation() }
+            )
+        }
+
+        // Delete Confirmations
+        if (showDeleteConfirm) {
+            NovaConfirmDialog(
+                title = "Delete Files",
+                message = "Are you sure you want to delete ${uiState.selectedCount} selected item(s)? This action cannot be undone.",
+                confirmText = "Delete",
+                cancelText = "Cancel",
+                isDestructive = true,
+                onConfirm = {
+                    showDeleteConfirm = false
+                    onDelete()
+                },
+                onDismiss = { showDeleteConfirm = false }
+            )
+        }
+
+        if (showSingleDeleteConfirm && fileToDelete != null) {
+            val item = fileToDelete!!
+            NovaConfirmDialog(
+                title = "Delete ${if (item.isDirectory) "Folder" else "File"}",
+                message = "Are you sure you want to delete '${item.name}'? This cannot be undone.",
+                confirmText = "Delete",
+                cancelText = "Cancel",
+                isDestructive = true,
+                onConfirm = {
+                    showSingleDeleteConfirm = false
+                    onDeleteSingleFile(item)
+                    fileToDelete = null
+                },
+                onDismiss = {
+                    showSingleDeleteConfirm = false
+                    fileToDelete = null
+                }
+            )
+        }
+
+        // Create Folder Dialog
         if (showCreateFolderDialog) {
             NovaInputDialog(
                 title = "New Folder",
                 placeholder = "Folder name",
                 confirmText = "Create",
-                onConfirm = { name ->
+                cancelText = "Cancel",
+                onConfirm = { folderName ->
                     showCreateFolderDialog = false
-                    onCreateFolder(name)
+                    onCreateFolder(folderName)
                 },
                 onDismiss = { showCreateFolderDialog = false }
             )
         }
 
-        // Rename File Dialog Modal
+        // Rename Dialog
         if (showRenameDialog && fileToRename != null) {
+            val item = fileToRename!!
             NovaInputDialog(
                 title = "Rename",
-                initialValue = fileToRename!!.name,
+                initialValue = item.name,
                 placeholder = "New name",
                 confirmText = "Rename",
+                cancelText = "Cancel",
                 onConfirm = { newName ->
-                    val target = fileToRename
                     showRenameDialog = false
+                    onRenameFile(item, newName)
                     fileToRename = null
-                    if (target != null) {
-                        onRenameFile(target, newName)
-                    }
                 },
                 onDismiss = {
                     showRenameDialog = false
@@ -652,32 +746,38 @@ fun FilesScreen(
             )
         }
 
-        // Compress to ZIP Dialog Modal
+        // Create ZIP Dialog
         if (showCreateZipDialog) {
+            val defaultName = if (fileToCompress != null) {
+                "${File(fileToCompress!!.path).nameWithoutExtension}.zip"
+            } else {
+                "Archive_${System.currentTimeMillis()}.zip"
+            }
             NovaInputDialog(
-                title = "Compress ${uiState.selectedCount} items to ZIP",
-                initialValue = "Archive.zip",
-                placeholder = "Archive name (.zip)",
+                title = "Compress to ZIP",
+                initialValue = defaultName,
+                placeholder = "Archive name",
                 confirmText = "Compress",
+                cancelText = "Cancel",
                 onConfirm = { zipName ->
                     showCreateZipDialog = false
-                    onCompressSelected(zipName)
+                    if (fileToCompress != null) {
+                        onCompressSingleFile(fileToCompress!!, zipName)
+                        fileToCompress = null
+                    } else {
+                        onCompressSelected(zipName)
+                    }
                 },
-                onDismiss = { showCreateZipDialog = false }
+                onDismiss = {
+                    showCreateZipDialog = false
+                    fileToCompress = null
+                }
             )
         }
 
-        // More Actions Sheet (MiXplorer/ES Power Tools: Compress, Extract, Properties)
-        if (showMoreActionsSheet) {
-            val singleSelected = (uiState.folders + uiState.files).firstOrNull { uiState.selectedIds.contains(it.id) }
-            val isSingleArchive = uiState.selectedCount == 1 && singleSelected != null && (
-                singleSelected.fileType == FileType.ARCHIVE ||
-                    singleSelected.name.endsWith(".zip", ignoreCase = true) ||
-                    singleSelected.name.endsWith(".tar", ignoreCase = true) ||
-                    singleSelected.name.endsWith(".tar.gz", ignoreCase = true) ||
-                    singleSelected.name.endsWith(".tgz", ignoreCase = true)
-                )
-            NovaBottomSheet(onDismissRequest = { showMoreActionsSheet = false }) {
+        // Bookmarks / Favorites Sheet
+        if (showBookmarksSheet) {
+            NovaBottomSheet(onDismissRequest = { showBookmarksSheet = false }) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -685,42 +785,101 @@ fun FilesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Advanced Actions (${uiState.selectedCount} selected)",
+                        text = "Favorites & Shortcuts",
+                        style = NovaTheme.typography.title,
+                        color = NovaTheme.colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (uiState.bookmarks.isEmpty()) {
+                        Text(
+                            text = "No saved bookmarks. Tap the star icon to bookmark any directory.",
+                            style = NovaTheme.typography.body,
+                            color = NovaTheme.colors.textSecondary
+                        )
+                    } else {
+                        uiState.bookmarks.forEach { bm ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(NovaTheme.colors.surfaceElevated)
+                                    .clickable {
+                                        showBookmarksSheet = false
+                                        onFolderClick(bm.path)
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = NovaTheme.colors.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(text = bm.name, style = NovaTheme.typography.subtitle, color = NovaTheme.colors.textPrimary)
+                                        Text(text = bm.path, style = NovaTheme.typography.caption, color = NovaTheme.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { onToggleBookmark(bm.path, bm.name) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove bookmark",
+                                        tint = NovaTheme.colors.textSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // More Actions Sheet
+        if (showMoreActionsSheet) {
+            val selectedFiles = (uiState.folders + uiState.files).filter { uiState.selectedIds.contains(it.id) }
+            val singleSelected = selectedFiles.singleOrNull()
+            NovaBottomSheet(onDismissRequest = { showMoreActionsSheet = false }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "More Actions (${uiState.selectedCount} items)",
                         style = NovaTheme.typography.title,
                         color = NovaTheme.colors.textPrimary
                     )
                     NovaButton(
-                        text = "Batch Rename (Prefix / Replace / Counter)",
+                        text = "Batch Rename",
                         onClick = {
                             showMoreActionsSheet = false
                             showBatchRenameDialog = true
                         },
-                        variant = NovaButtonVariant.PRIMARY,
+                        variant = NovaButtonVariant.SECONDARY,
                         modifier = Modifier.fillMaxWidth()
                     )
                     NovaButton(
-                        text = "Compress to ZIP Archive",
+                        text = "Move to Trash (.Trash)",
                         onClick = {
                             showMoreActionsSheet = false
-                            showCreateZipDialog = true
+                            val trashDir = File(uiState.currentPath, ".Trash")
+                            onMoveToTrash(trashDir)
                         },
                         variant = NovaButtonVariant.SECONDARY,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (isSingleArchive && singleSelected != null) {
-                        NovaButton(
-                            text = "Extract Archive Here",
-                            onClick = {
-                                showMoreActionsSheet = false
-                                onExtractArchive(singleSelected)
-                            },
-                            variant = NovaButtonVariant.SECONDARY,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
                     if (singleSelected != null) {
                         NovaButton(
-                            text = "Properties & Path Info",
+                            text = "Properties & SHA-256",
                             onClick = {
                                 showMoreActionsSheet = false
                                 fileForDetails = singleSelected
@@ -771,7 +930,7 @@ fun FilesScreen(
                             style = NovaTheme.typography.caption,
                             color = NovaTheme.colors.primary
                         )
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = expectedHash,
                             onValueChange = { expectedHash = it },
                             placeholder = { Text("Paste expected SHA-256 to verify", color = NovaTheme.colors.textTertiary) },
@@ -831,26 +990,26 @@ fun FilesScreen(
                         style = NovaTheme.typography.title,
                         color = NovaTheme.colors.textPrimary
                     )
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = prefix, onValueChange = { prefix = it },
                         label = { Text("Prefix") }, singleLine = true, modifier = Modifier.fillMaxWidth()
                     )
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = suffix, onValueChange = { suffix = it },
                         label = { Text("Suffix") }, singleLine = true, modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = findText, onValueChange = { findText = it },
                             label = { Text("Find") }, singleLine = true, modifier = Modifier.weight(1f)
                         )
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = replaceText, onValueChange = { replaceText = it },
                             label = { Text("Replace") }, singleLine = true, modifier = Modifier.weight(1f)
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = addCounter, onCheckedChange = { addCounter = it })
+                        androidx.compose.material3.Checkbox(checked = addCounter, onCheckedChange = { addCounter = it })
                         Text("Append sequential counter (_001, _002...)", style = NovaTheme.typography.caption, color = NovaTheme.colors.textSecondary)
                     }
                     NovaButton(
@@ -888,36 +1047,46 @@ fun FilesScreen(
 
 @Composable
 private fun StandardHeader(
-    breadcrumbs: List<BreadcrumbItem>,
+    folderTitle: String,
+    folderPath: String,
     isGridView: Boolean,
     searchQuery: String,
     isSearching: Boolean,
+    canNavigateUp: Boolean,
+    isBookmarked: Boolean,
+    onNavigateBack: () -> Unit,
     onToggleSearch: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onBreadcrumbClick: (String) -> Unit,
-    onToggleLayout: () -> Unit,
-    isBookmarked: Boolean = false,
-    onToggleBookmark: () -> Unit = {}
+    onOpenSettings: () -> Unit,
+    onCreateFolder: () -> Unit,
+    onToggleBookmark: () -> Unit,
+    overflowMenuExpanded: Boolean,
+    onDismissOverflow: () -> Unit,
+    onOpenOverflow: () -> Unit,
+    showHiddenFiles: Boolean,
+    onToggleShowHidden: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         if (isSearching) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = onSearchQueryChange,
                     placeholder = { Text("Search files...", color = NovaTheme.colors.textTertiary) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
-                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = NovaTheme.colors.textPrimary,
                         unfocusedTextColor = NovaTheme.colors.textPrimary,
                         focusedBorderColor = NovaTheme.colors.primary,
@@ -928,8 +1097,7 @@ private fun StandardHeader(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close Search",
-                        tint = NovaTheme.colors.textPrimary,
-                        modifier = Modifier.padding(start = 4.dp)
+                        tint = NovaTheme.colors.textPrimary
                     )
                 }
             }
@@ -939,60 +1107,100 @@ private fun StandardHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Files",
-                    style = NovaTheme.typography.title,
-                    color = NovaTheme.colors.textPrimary
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (canNavigateUp) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Navigate Up",
+                                tint = NovaTheme.colors.textPrimary
+                            )
+                        }
+                    }
+                    Text(
+                        text = folderTitle,
+                        style = NovaTheme.typography.title,
+                        color = NovaTheme.colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onToggleBookmark) {
                         Icon(
                             imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
                             contentDescription = "Bookmark Folder",
-                            tint = if (isBookmarked) NovaTheme.colors.primary else NovaTheme.colors.textPrimary
+                            tint = if (isBookmarked) NovaTheme.colors.primary else NovaTheme.colors.textSecondary
                         )
                     }
                     IconButton(onClick = onToggleSearch) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = NovaTheme.colors.textPrimary
+                            tint = NovaTheme.colors.textSecondary
                         )
                     }
-                    IconButton(onClick = onToggleLayout) {
+                    IconButton(onClick = onOpenSettings) {
                         Icon(
-                            imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                            contentDescription = "Toggle Grid/List",
-                            tint = NovaTheme.colors.textPrimary
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Browsing & Sort Options",
+                            tint = NovaTheme.colors.textSecondary
                         )
                     }
-                }
-            }
-        }
-
-        // Breadcrumb Trail (Reference: Device > Photos > Camera)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            breadcrumbs.forEachIndexed { index, crumb ->
-                val isLast = index == breadcrumbs.size - 1
-                Text(
-                    text = crumb.name,
-                    style = NovaTheme.typography.captionMedium,
-                    color = if (isLast) NovaTheme.colors.primary else NovaTheme.colors.textSecondary,
-                    modifier = Modifier.clickable { onBreadcrumbClick(crumb.path) }
-                )
-                if (!isLast) {
-                    Text(
-                        text = " > ",
-                        style = NovaTheme.typography.caption,
-                        color = NovaTheme.colors.textTertiary,
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
+                    IconButton(onClick = onCreateFolder) {
+                        Icon(
+                            imageVector = Icons.Default.CreateNewFolder,
+                            contentDescription = "New Folder",
+                            tint = NovaTheme.colors.textSecondary
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = onOpenOverflow) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More Options",
+                                tint = NovaTheme.colors.textSecondary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = overflowMenuExpanded,
+                            onDismissRequest = onDismissOverflow
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (showHiddenFiles) "Hide Hidden Files" else "Show Hidden Files") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (showHiddenFiles) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    onDismissOverflow()
+                                    onToggleShowHidden()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Bookmarks & Shortcuts") },
+                                leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) },
+                                onClick = {
+                                    onDismissOverflow()
+                                    onOpenBookmarks()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Refresh") },
+                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                                onClick = {
+                                    onDismissOverflow()
+                                    onRefresh()
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1016,8 +1224,8 @@ private fun SelectionHeader(
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClearSelection) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close Selection",
                     tint = NovaTheme.colors.textPrimary
                 )
             }
@@ -1029,14 +1237,13 @@ private fun SelectionHeader(
             )
         }
 
-        Checkbox(
-            checked = isAllSelected,
-            onCheckedChange = { onSelectAll() },
-            colors = CheckboxDefaults.colors(
-                checkedColor = NovaTheme.colors.primary,
-                uncheckedColor = NovaTheme.colors.cardBorder
+        IconButton(onClick = onSelectAll) {
+            Icon(
+                imageVector = Icons.Default.SelectAll,
+                contentDescription = if (isAllSelected) "Deselect All" else "Select All",
+                tint = if (isAllSelected) NovaTheme.colors.primary else NovaTheme.colors.textPrimary
             )
-        )
+        }
     }
 }
 
@@ -1045,23 +1252,25 @@ private fun SelectionBottomDock(
     onCopy: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit,
+    onShare: () -> Unit,
+    onCompress: () -> Unit,
     onMore: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .shadow(NovaTheme.elevation.level4, NovaTheme.shapes.pill)
             .clip(NovaTheme.shapes.pill)
-            .background(NovaTheme.colors.surface)
+            .background(NovaTheme.colors.surfaceElevated)
             .border(1.dp, NovaTheme.colors.cardBorder, NovaTheme.shapes.pill)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         DockActionButton(icon = Icons.Default.ContentCopy, label = "Copy", onClick = onCopy)
-        DockActionButton(icon = Icons.AutoMirrored.Filled.DriveFileMove, label = "Move", onClick = onMove)
+        DockActionButton(icon = Icons.AutoMirrored.Filled.DriveFileMove, label = "Cut", onClick = onMove)
         DockActionButton(icon = Icons.Default.Delete, label = "Delete", tint = NovaTheme.colors.error, onClick = onDelete)
-        DockActionButton(icon = Icons.Default.Edit, label = "Edit", onClick = onEdit)
+        DockActionButton(icon = Icons.Default.Share, label = "Share", onClick = onShare)
+        DockActionButton(icon = Icons.Default.FolderZip, label = "Zip", onClick = onCompress)
         DockActionButton(icon = Icons.Default.MoreHoriz, label = "More", onClick = onMore)
     }
 }
@@ -1077,7 +1286,7 @@ private fun DockActionButton(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
@@ -1092,5 +1301,327 @@ private fun DockActionButton(
             style = NovaTheme.typography.caption,
             color = tint
         )
+    }
+}
+
+// BUG-004: Clean, Context-Appropriate File & Folder Context Menu Sheet
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FileItemContextMenuSheet(
+    item: FileItem,
+    clipboard: ClipboardState?,
+    isBookmarked: Boolean,
+    onDismiss: () -> Unit,
+    onOpen: () -> Unit,
+    onOpenWith: () -> Unit,
+    onCut: () -> Unit,
+    onCopy: () -> Unit,
+    onPasteInto: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onShare: () -> Unit,
+    onProperties: () -> Unit,
+    onToggleBookmark: () -> Unit,
+    onCompress: () -> Unit,
+    onExtract: () -> Unit,
+    onSelect: () -> Unit
+) {
+    val isArchive = item.fileType == FileType.ARCHIVE ||
+            item.name.endsWith(".zip", true) ||
+            item.name.endsWith(".tar", true) ||
+            item.name.endsWith(".tar.gz", true) ||
+            item.name.endsWith(".tgz", true)
+
+    NovaBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (item.isDirectory) NovaTheme.colors.categoryFolders.copy(alpha = 0.2f) else NovaTheme.colors.primary.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (item.isDirectory) Icons.Default.Folder else Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = null,
+                        tint = if (item.isDirectory) NovaTheme.colors.categoryFolders else NovaTheme.colors.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.name,
+                        style = NovaTheme.typography.subtitle,
+                        color = NovaTheme.colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val meta = if (item.isDirectory) {
+                        "${item.itemCount ?: 0} items • ${FileFormatters.formatDate(item.lastModifiedMs)}"
+                    } else {
+                        "${FileFormatters.formatBytes(item.sizeBytes)} • ${FileFormatters.formatDate(item.lastModifiedMs)}"
+                    }
+                    Text(
+                        text = meta,
+                        style = NovaTheme.typography.caption,
+                        color = NovaTheme.colors.textSecondary
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(NovaTheme.colors.cardBorder)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action Items
+            ContextMenuItem(icon = Icons.Default.Folder, label = "Open", onClick = onOpen)
+
+            if (!item.isDirectory) {
+                ContextMenuItem(icon = Icons.AutoMirrored.Filled.OpenInNew, label = "Open with...", onClick = onOpenWith)
+            }
+
+            ContextMenuItem(icon = Icons.AutoMirrored.Filled.DriveFileMove, label = "Cut", onClick = onCut)
+            ContextMenuItem(icon = Icons.Default.ContentCopy, label = "Copy", onClick = onCopy)
+
+            if (item.isDirectory && clipboard != null && clipboard.files.isNotEmpty()) {
+                ContextMenuItem(
+                    icon = Icons.Default.ContentPaste,
+                    label = "Paste here (${clipboard.files.size} items)",
+                    tint = NovaTheme.colors.primary,
+                    onClick = onPasteInto
+                )
+            }
+
+            ContextMenuItem(icon = Icons.Default.Edit, label = "Rename", onClick = onRename)
+            ContextMenuItem(icon = Icons.Default.Delete, label = "Delete", tint = NovaTheme.colors.error, onClick = onDelete)
+
+            if (!item.isDirectory) {
+                ContextMenuItem(icon = Icons.Default.Share, label = "Share", onClick = onShare)
+            }
+
+            ContextMenuItem(icon = Icons.Default.Info, label = "Properties & Checksum", onClick = onProperties)
+
+            ContextMenuItem(
+                icon = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                label = if (isBookmarked) "Remove Favorite" else "Add to Favorites",
+                onClick = onToggleBookmark
+            )
+
+            ContextMenuItem(icon = Icons.Default.FolderZip, label = "Compress (ZIP)", onClick = onCompress)
+
+            if (isArchive) {
+                ContextMenuItem(icon = Icons.Default.Archive, label = "Extract Here", tint = NovaTheme.colors.primary, onClick = onExtract)
+            }
+
+            ContextMenuItem(icon = Icons.Default.Check, label = "Select", onClick = onSelect)
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ContextMenuItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    tint: Color = NovaTheme.colors.textPrimary
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = label,
+            style = NovaTheme.typography.body,
+            color = tint
+        )
+    }
+}
+
+// Browsing & Sorting Options Sheet
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BrowsingSettingsSheet(
+    isGridView: Boolean,
+    showHiddenFiles: Boolean,
+    sortConfig: com.novafiles.core.model.FileSortConfig,
+    onToggleLayout: () -> Unit,
+    onToggleShowHidden: () -> Unit,
+    onSelectSortBy: (SortBy) -> Unit,
+    onToggleSortDirection: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    NovaBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = "Browsing Options",
+                style = NovaTheme.typography.title,
+                color = NovaTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Layout Mode Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NovaTheme.colors.surfaceElevated)
+                    .clickable { onToggleLayout() }
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isGridView) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
+                        contentDescription = null,
+                        tint = NovaTheme.colors.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Layout View", style = NovaTheme.typography.subtitle, color = NovaTheme.colors.textPrimary)
+                        Text(if (isGridView) "Grid View" else "List View", style = NovaTheme.typography.caption, color = NovaTheme.colors.textSecondary)
+                    }
+                }
+                Icon(
+                    imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+                    contentDescription = "Toggle",
+                    tint = NovaTheme.colors.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Show Hidden Files Switch
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NovaTheme.colors.surfaceElevated)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (showHiddenFiles) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        tint = NovaTheme.colors.categoryPhotos,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Show Hidden Files", style = NovaTheme.typography.subtitle, color = NovaTheme.colors.textPrimary)
+                        Text("Display dotfiles and .nomedia", style = NovaTheme.typography.caption, color = NovaTheme.colors.textSecondary)
+                    }
+                }
+                Switch(
+                    checked = showHiddenFiles,
+                    onCheckedChange = { onToggleShowHidden() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = NovaTheme.colors.primary
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = "Sort By",
+                style = NovaTheme.typography.subtitle,
+                color = NovaTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            SortBy.entries.forEach { sortBy ->
+                val isSelected = sortConfig.sortBy == sortBy
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSelectSortBy(sortBy) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = sortBy.name.lowercase().replaceFirstChar { it.uppercase() },
+                        style = NovaTheme.typography.body,
+                        color = if (isSelected) NovaTheme.colors.primary else NovaTheme.colors.textPrimary,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = { onSelectSortBy(sortBy) },
+                        colors = RadioButtonDefaults.colors(selectedColor = NovaTheme.colors.primary)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Sort Direction Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NovaTheme.colors.surfaceElevated)
+                    .clickable { onToggleSortDirection() }
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (sortConfig.direction == SortDirection.ASCENDING) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                        contentDescription = null,
+                        tint = NovaTheme.colors.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (sortConfig.direction == SortDirection.ASCENDING) "Order: Ascending (A-Z)" else "Order: Descending (Z-A)",
+                        style = NovaTheme.typography.body,
+                        color = NovaTheme.colors.textPrimary
+                    )
+                }
+                Text("Toggle", style = NovaTheme.typography.captionMedium, color = NovaTheme.colors.primary)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }

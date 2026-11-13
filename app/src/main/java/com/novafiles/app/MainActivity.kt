@@ -2,6 +2,7 @@ package com.novafiles.app
 
 import android.os.Bundle
 import android.os.Environment
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -116,37 +117,37 @@ sealed interface ActiveScreen : java.io.Serializable {
     data object About : ActiveScreen
 }
 
-val ActiveScreenSaver = Saver<ActiveScreen?, Any>(
-    save = { screen ->
-        when (screen) {
-            is ActiveScreen.Video -> listOf("Video", screen.filePath)
-            is ActiveScreen.Music -> listOf("Music")
-            is ActiveScreen.Gallery -> listOf("Gallery", screen.album ?: "")
-            is ActiveScreen.StorageAnalyzer -> listOf("StorageAnalyzer")
-            is ActiveScreen.StorageCleaner -> listOf("StorageCleaner")
-            is ActiveScreen.FtpServer -> listOf("FtpServer")
-            is ActiveScreen.TextEditor -> listOf("TextEditor", screen.filePath)
-            is ActiveScreen.PdfViewer -> listOf("PdfViewer", screen.filePath)
-            is ActiveScreen.About -> listOf("About")
-            null -> null
-        }
-    },
-    restore = { value ->
-        val list = value as? List<*> ?: return@Saver null
-        val type = list.getOrNull(0) as? String ?: return@Saver null
-        when (type) {
-            "Video" -> ActiveScreen.Video(list.getOrNull(1) as? String ?: "")
-            "Music" -> ActiveScreen.Music
-            "Gallery" -> ActiveScreen.Gallery((list.getOrNull(1) as? String)?.takeIf { it.isNotEmpty() })
-            "StorageAnalyzer" -> ActiveScreen.StorageAnalyzer
-            "StorageCleaner" -> ActiveScreen.StorageCleaner
-            "FtpServer" -> ActiveScreen.FtpServer
-            "TextEditor" -> ActiveScreen.TextEditor(list.getOrNull(1) as? String ?: "")
-            "PdfViewer" -> ActiveScreen.PdfViewer(list.getOrNull(1) as? String ?: "")
-            "About" -> ActiveScreen.About
-            else -> null
-        }
+private fun serializeActiveScreen(screen: ActiveScreen): List<String> = when (screen) {
+    is ActiveScreen.Video -> listOf("Video", screen.filePath)
+    is ActiveScreen.Music -> listOf("Music")
+    is ActiveScreen.Gallery -> listOf("Gallery", screen.album ?: "")
+    is ActiveScreen.StorageAnalyzer -> listOf("StorageAnalyzer")
+    is ActiveScreen.StorageCleaner -> listOf("StorageCleaner")
+    is ActiveScreen.FtpServer -> listOf("FtpServer")
+    is ActiveScreen.TextEditor -> listOf("TextEditor", screen.filePath)
+    is ActiveScreen.PdfViewer -> listOf("PdfViewer", screen.filePath)
+    is ActiveScreen.About -> listOf("About")
+}
+
+private fun deserializeActiveScreen(list: List<*>): ActiveScreen? {
+    val type = list.getOrNull(0) as? String ?: return null
+    return when (type) {
+        "Video" -> ActiveScreen.Video(list.getOrNull(1) as? String ?: "")
+        "Music" -> ActiveScreen.Music
+        "Gallery" -> ActiveScreen.Gallery((list.getOrNull(1) as? String)?.takeIf { it.isNotEmpty() })
+        "StorageAnalyzer" -> ActiveScreen.StorageAnalyzer
+        "StorageCleaner" -> ActiveScreen.StorageCleaner
+        "FtpServer" -> ActiveScreen.FtpServer
+        "TextEditor" -> ActiveScreen.TextEditor(list.getOrNull(1) as? String ?: "")
+        "PdfViewer" -> ActiveScreen.PdfViewer(list.getOrNull(1) as? String ?: "")
+        "About" -> ActiveScreen.About
+        else -> null
     }
+}
+
+val ActiveScreenStackSaver = Saver<List<ActiveScreen>, List<List<String>>>(
+    save = { stack -> stack.map { serializeActiveScreen(it) } },
+    restore = { savedList -> savedList.mapNotNull { deserializeActiveScreen(it) } }
 )
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
@@ -164,7 +165,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         viewModelFactory {
             initializer {
                 val handle = createSavedStateHandle()
-                FilesViewModel(fileRepository, handle)
+                FilesViewModel(
+                    fileRepository = fileRepository,
+                    context = applicationContext,
+                    savedStateHandle = handle
+                )
             }
         }
     }
@@ -294,88 +299,111 @@ fun NovaFilesMainApp(
     }
 
     var selectedTab by rememberSaveable { mutableStateOf(NovaNavTab.HOME) }
-    var activeScreen by rememberSaveable(stateSaver = ActiveScreenSaver) { mutableStateOf<ActiveScreen?>(null) }
+    var activeScreenStack by rememberSaveable(stateSaver = ActiveScreenStackSaver) {
+        mutableStateOf<List<ActiveScreen>>(emptyList())
+    }
+
+    fun navigateTo(screen: ActiveScreen) {
+        if (activeScreenStack.lastOrNull() != screen) {
+            activeScreenStack = activeScreenStack + screen
+        }
+    }
+
+    fun navigateBack() {
+        if (activeScreenStack.isNotEmpty()) {
+            activeScreenStack = activeScreenStack.dropLast(1)
+        }
+    }
+
     val filesUiState by filesViewModel.uiState.collectAsState()
     val dualPaneUiState by dualPaneViewModel.uiState.collectAsState()
     val playbackState by MusicPlaybackManager.state.collectAsState()
 
-    if (activeScreen != null) {
-        when (val screen = activeScreen) {
+    val currentScreen = activeScreenStack.lastOrNull()
+    if (currentScreen != null) {
+        when (currentScreen) {
             is ActiveScreen.Video -> {
                 VideoPlayerScreen(
-                    videoFilePath = screen.filePath,
-                    onNavigateBack = { activeScreen = null }
+                    videoFilePath = currentScreen.filePath,
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.Music -> {
                 MusicPlayerScreen(
                     viewModel = musicViewModel,
-                    onNavigateBack = { activeScreen = null }
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.Gallery -> {
                 GalleryScreen(
-                    onNavigateBack = { activeScreen = null }
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.StorageAnalyzer -> {
                 StorageAnalyzerScreen(
-                    onNavigateBack = { activeScreen = null },
-                    onNavigateToCleaner = { activeScreen = ActiveScreen.StorageCleaner },
+                    onNavigateBack = { navigateBack() },
+                    onNavigateToCleaner = { navigateTo(ActiveScreen.StorageCleaner) },
                     onOpenFile = { fileItem ->
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
                                 musicViewModel.playTrack(fileItem)
-                                activeScreen = ActiveScreen.Music
+                                navigateTo(ActiveScreen.Music)
                             }
                             FileType.VIDEO -> {
-                                activeScreen = ActiveScreen.Video(fileItem.path)
+                                navigateTo(ActiveScreen.Video(fileItem.path))
                             }
                             FileType.IMAGE -> {
-                                activeScreen = ActiveScreen.Gallery()
+                                navigateTo(ActiveScreen.Gallery())
                             }
                             FileType.DOCUMENT -> {
-                                activeScreen = if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
-                                    ActiveScreen.PdfViewer(fileItem.path)
+                                if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
+                                    navigateTo(ActiveScreen.PdfViewer(fileItem.path))
                                 } else {
-                                    ActiveScreen.TextEditor(fileItem.path)
+                                    navigateTo(ActiveScreen.TextEditor(fileItem.path))
                                 }
                             }
-                            else -> {}
+                            else -> navigateTo(ActiveScreen.TextEditor(fileItem.path))
                         }
                     }
                 )
             }
             is ActiveScreen.StorageCleaner -> {
                 StorageCleanerScreen(
-                    onNavigateBack = { activeScreen = null }
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.FtpServer -> {
                 FtpServerScreen(
-                    onNavigateBack = { activeScreen = null }
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.TextEditor -> {
                 TextEditorScreen(
-                    filePath = screen.filePath,
-                    onNavigateBack = { activeScreen = null }
+                    filePath = currentScreen.filePath,
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.PdfViewer -> {
                 PdfViewerScreen(
-                    filePath = screen.filePath,
-                    onNavigateBack = { activeScreen = null }
+                    filePath = currentScreen.filePath,
+                    onNavigateBack = { navigateBack() }
                 )
             }
             is ActiveScreen.About -> {
                 AboutScreen(
-                    onNavigateBack = { activeScreen = null }
+                    onNavigateBack = { navigateBack() }
                 )
             }
-            null -> {}
         }
         return
+    }
+
+    // System back navigation at bottom navigation tab level.
+    // When no active overlay/nested screen is open and the user is on a non-HOME tab,
+    // back navigation returns to the HOME dashboard.
+    // When on HOME dashboard, this BackHandler is disabled, allowing system back to minimize/exit the app.
+    BackHandler(enabled = activeScreenStack.isEmpty() && selectedTab != NovaNavTab.HOME) {
+        selectedTab = NovaNavTab.HOME
     }
 
     NovaScaffold(
@@ -389,7 +417,7 @@ fun NovaFilesMainApp(
                         onNext = { MusicPlaybackManager.skipToNext() },
                         onClick = {
                             musicViewModel.expandNowPlaying()
-                            activeScreen = ActiveScreen.Music
+                            navigateTo(ActiveScreen.Music)
                         }
                     )
                 }
@@ -417,30 +445,32 @@ fun NovaFilesMainApp(
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
                                 musicViewModel.playTrack(fileItem)
-                                activeScreen = ActiveScreen.Music
+                                navigateTo(ActiveScreen.Music)
                             }
-                            FileType.VIDEO -> activeScreen = ActiveScreen.Video(fileItem.path)
-                            FileType.IMAGE -> activeScreen = ActiveScreen.Gallery()
-                            FileType.DOCUMENT -> activeScreen = if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
-                                ActiveScreen.PdfViewer(fileItem.path)
-                            } else {
-                                ActiveScreen.TextEditor(fileItem.path)
+                            FileType.VIDEO -> navigateTo(ActiveScreen.Video(fileItem.path))
+                            FileType.IMAGE -> navigateTo(ActiveScreen.Gallery())
+                            FileType.DOCUMENT -> {
+                                if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
+                                    navigateTo(ActiveScreen.PdfViewer(fileItem.path))
+                                } else {
+                                    navigateTo(ActiveScreen.TextEditor(fileItem.path))
+                                }
                             }
-                            else -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            else -> navigateTo(ActiveScreen.TextEditor(fileItem.path))
                         }
                     },
-                    onStorageOverviewClick = { activeScreen = ActiveScreen.StorageAnalyzer },
-                    onCleanUpClick = { activeScreen = ActiveScreen.StorageCleaner },
+                    onStorageOverviewClick = { navigateTo(ActiveScreen.StorageAnalyzer) },
+                    onCleanUpClick = { navigateTo(ActiveScreen.StorageCleaner) },
                     onSettingsClick = { selectedTab = NovaNavTab.SETTINGS },
-                    onFtpClick = { activeScreen = ActiveScreen.FtpServer },
-                    onAboutClick = { activeScreen = ActiveScreen.About },
+                    onFtpClick = { navigateTo(ActiveScreen.FtpServer) },
+                    onAboutClick = { navigateTo(ActiveScreen.About) },
                     onCategoryClick = { categoryName ->
                         when (categoryName) {
-                            "Photos" -> activeScreen = ActiveScreen.Gallery()
+                            "Photos" -> navigateTo(ActiveScreen.Gallery())
                             "Audio" -> {
                                 musicViewModel.collapseNowPlaying()
                                 musicViewModel.loadMusicLibrary()
-                                activeScreen = ActiveScreen.Music
+                                navigateTo(ActiveScreen.Music)
                             }
                             "Videos" -> {
                                 val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
@@ -469,19 +499,27 @@ fun NovaFilesMainApp(
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
                                 musicViewModel.playTrack(fileItem)
-                                activeScreen = ActiveScreen.Music
+                                navigateTo(ActiveScreen.Music)
                             }
-                            FileType.VIDEO -> activeScreen = ActiveScreen.Video(fileItem.path)
-                            FileType.IMAGE -> activeScreen = ActiveScreen.Gallery()
-                            FileType.DOCUMENT -> activeScreen = if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
-                                ActiveScreen.PdfViewer(fileItem.path)
-                            } else {
-                                ActiveScreen.TextEditor(fileItem.path)
+                            FileType.VIDEO -> navigateTo(ActiveScreen.Video(fileItem.path))
+                            FileType.IMAGE -> navigateTo(ActiveScreen.Gallery())
+                            FileType.DOCUMENT -> {
+                                if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
+                                    navigateTo(ActiveScreen.PdfViewer(fileItem.path))
+                                } else {
+                                    navigateTo(ActiveScreen.TextEditor(fileItem.path))
+                                }
                             }
-                            else -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            else -> navigateTo(ActiveScreen.TextEditor(fileItem.path))
                         }
                     },
-                    onNavigateBack = { filesViewModel.navigateUp() },
+                    onNavigateBack = {
+                        if (filesViewModel.canNavigateUp()) {
+                            filesViewModel.navigateUp()
+                        } else {
+                            selectedTab = NovaNavTab.HOME
+                        }
+                    },
                     onToggleSelect = { id -> filesViewModel.toggleSelection(id) },
                     onSelectAll = { filesViewModel.selectAll() },
                     onClearSelection = { filesViewModel.clearSelection() },
@@ -505,12 +543,28 @@ fun NovaFilesMainApp(
                     onMoveToTrash = { trashDir -> filesViewModel.moveToTrashSelected(trashDir) },
                     onToggleBookmark = { path, name -> filesViewModel.toggleBookmark(path, name) },
                     onComputeSha256 = { path -> filesViewModel.computeSha256(path) },
+                    onToggleShowHidden = { filesViewModel.toggleShowHiddenFiles() },
+                    onRefresh = { filesViewModel.refresh() },
+                    onCopySingleFile = { filesViewModel.copyFile(it) },
+                    onCutSingleFile = { filesViewModel.cutFile(it) },
+                    onDeleteSingleFile = { filesViewModel.deleteSingleFile(it) },
+                    onPasteIntoFolder = { filesViewModel.pasteIntoFolder(it) },
+                    onCompressSingleFile = { item, name -> filesViewModel.compressSingleFile(item, name) },
+                    onCancelOperation = { filesViewModel.cancelOperation() },
                     modifier = contentModifier
                 )
             }
             NovaNavTab.DUAL -> {
                 DualPaneScreen(
                     uiState = dualPaneUiState,
+                    canNavigateUp = dualPaneViewModel.canNavigateUp(),
+                    onNavigateBack = {
+                        if (dualPaneViewModel.canNavigateUp()) {
+                            dualPaneViewModel.navigateUp()
+                        } else {
+                            selectedTab = NovaNavTab.HOME
+                        }
+                    },
                     onSetActivePane = { dualPaneViewModel.setActivePane(it) },
                     onFolderClickA = { dualPaneViewModel.loadPaneA(it) },
                     onFolderClickB = { dualPaneViewModel.loadPaneB(it) },
@@ -524,16 +578,18 @@ fun NovaFilesMainApp(
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
                                 musicViewModel.playTrack(fileItem)
-                                activeScreen = ActiveScreen.Music
+                                navigateTo(ActiveScreen.Music)
                             }
-                            FileType.VIDEO -> activeScreen = ActiveScreen.Video(fileItem.path)
-                            FileType.IMAGE -> activeScreen = ActiveScreen.Gallery()
-                            FileType.DOCUMENT -> activeScreen = if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
-                                ActiveScreen.PdfViewer(fileItem.path)
-                            } else {
-                                ActiveScreen.TextEditor(fileItem.path)
+                            FileType.VIDEO -> navigateTo(ActiveScreen.Video(fileItem.path))
+                            FileType.IMAGE -> navigateTo(ActiveScreen.Gallery())
+                            FileType.DOCUMENT -> {
+                                if (fileItem.name.endsWith(".pdf", ignoreCase = true)) {
+                                    navigateTo(ActiveScreen.PdfViewer(fileItem.path))
+                                } else {
+                                    navigateTo(ActiveScreen.TextEditor(fileItem.path))
+                                }
                             }
-                            else -> activeScreen = ActiveScreen.TextEditor(fileItem.path)
+                            else -> navigateTo(ActiveScreen.TextEditor(fileItem.path))
                         }
                     },
                     modifier = contentModifier
@@ -547,10 +603,10 @@ fun NovaFilesMainApp(
             }
             NovaNavTab.SETTINGS -> {
                 SettingsScreen(
-                    onNavigateToFtp = { activeScreen = ActiveScreen.FtpServer },
-                    onNavigateToAnalyzer = { activeScreen = ActiveScreen.StorageAnalyzer },
-                    onNavigateToCleaner = { activeScreen = ActiveScreen.StorageCleaner },
-                    onNavigateToAbout = { activeScreen = ActiveScreen.About },
+                    onNavigateToFtp = { navigateTo(ActiveScreen.FtpServer) },
+                    onNavigateToAnalyzer = { navigateTo(ActiveScreen.StorageAnalyzer) },
+                    onNavigateToCleaner = { navigateTo(ActiveScreen.StorageCleaner) },
+                    onNavigateToAbout = { navigateTo(ActiveScreen.About) },
                     onThemeConfigChange = onThemeConfigChange,
                     modifier = contentModifier
                 )
