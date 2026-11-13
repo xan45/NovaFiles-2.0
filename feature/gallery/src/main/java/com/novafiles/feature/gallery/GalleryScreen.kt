@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.ui.components.NovaBottomSheet
 import com.novafiles.core.ui.components.NovaCard
@@ -206,7 +207,7 @@ fun GalleryScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Adaptive(minSize = 110.dp),
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -340,8 +341,13 @@ private fun GalleryGridItem(
                 onLongClick = onLongClick
             )
     ) {
+        val context = LocalContext.current
         AsyncImage(
-            model = item.file,
+            model = ImageRequest.Builder(context)
+                .data(item.file)
+                .size(360)
+                .crossfade(true)
+                .build(),
             contentDescription = item.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()

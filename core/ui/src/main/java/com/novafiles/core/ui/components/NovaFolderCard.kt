@@ -21,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.novafiles.core.ui.icons.NovaIcons
 import com.novafiles.core.designsystem.theme.NovaTheme
 
 @Composable
@@ -49,7 +51,7 @@ fun NovaFolderCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Folder,
+                    imageVector = NovaIcons.Folder,
                     contentDescription = null,
                     tint = folderIconColor,
                     modifier = Modifier.size(32.dp)
@@ -81,7 +83,8 @@ fun NovaFolderCard(
                 text = name,
                 style = NovaTheme.typography.subtitle,
                 color = NovaTheme.colors.textPrimary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -90,7 +93,8 @@ fun NovaFolderCard(
                 text = "$itemCount items • $dateText",
                 style = NovaTheme.typography.caption,
                 color = NovaTheme.colors.textSecondary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

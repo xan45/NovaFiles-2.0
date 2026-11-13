@@ -29,10 +29,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.model.FileItem
+import androidx.compose.ui.text.style.TextOverflow
 import com.novafiles.core.model.FileType
+import com.novafiles.core.ui.icons.NovaIcons
+import java.io.File
 
 @Composable
 fun NovaFileRow(
@@ -60,12 +67,42 @@ fun NovaFileRow(
                 .background(iconBg),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp)
-            )
+            if (!item.isDirectory && (item.fileType == FileType.IMAGE || item.fileType == FileType.VIDEO)) {
+                val context = LocalContext.current
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(File(item.path))
+                        .size(160)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+                if (item.fileType == FileType.VIDEO) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0x99000000)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Movie,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -75,7 +112,8 @@ fun NovaFileRow(
                 text = item.name,
                 style = NovaTheme.typography.subtitle,
                 color = NovaTheme.colors.textPrimary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             val metaText = when {
@@ -105,12 +143,13 @@ fun NovaFileRow(
 private fun getFileTypeAttributes(fileType: FileType): Triple<ImageVector, Color, Color> {
     val colors = NovaTheme.colors
     return when (fileType) {
-        FileType.IMAGE -> Triple(Icons.Default.Image, colors.categoryPhotos, colors.categoryPhotos.copy(alpha = 0.2f))
-        FileType.VIDEO -> Triple(Icons.Default.Movie, colors.categoryVideos, colors.categoryVideos.copy(alpha = 0.2f))
-        FileType.AUDIO -> Triple(Icons.Default.MusicNote, colors.categoryAudio, colors.categoryAudio.copy(alpha = 0.2f))
-        FileType.DOCUMENT -> Triple(Icons.Default.Description, colors.categoryDocuments, colors.categoryDocuments.copy(alpha = 0.2f))
-        FileType.FOLDER -> Triple(Icons.Default.Folder, colors.categoryFolders, colors.categoryFolders.copy(alpha = 0.2f))
-        FileType.APK -> Triple(Icons.Default.Widgets, colors.categoryApks, colors.categoryApks.copy(alpha = 0.2f))
-        else -> Triple(Icons.Default.Description, colors.textSecondary, colors.surfaceElevated)
+        FileType.IMAGE -> Triple(NovaIcons.Photos, colors.categoryPhotos, colors.categoryPhotos.copy(alpha = 0.2f))
+        FileType.VIDEO -> Triple(NovaIcons.Videos, colors.categoryVideos, colors.categoryVideos.copy(alpha = 0.2f))
+        FileType.AUDIO -> Triple(NovaIcons.AudioWave, colors.categoryAudio, colors.categoryAudio.copy(alpha = 0.2f))
+        FileType.DOCUMENT -> Triple(NovaIcons.Documents, colors.categoryDocuments, colors.categoryDocuments.copy(alpha = 0.2f))
+        FileType.FOLDER -> Triple(NovaIcons.Folder, colors.categoryFolders, colors.categoryFolders.copy(alpha = 0.2f))
+        FileType.APK -> Triple(NovaIcons.ApkCube, colors.categoryApks, colors.categoryApks.copy(alpha = 0.2f))
+        FileType.ARCHIVE -> Triple(NovaIcons.ArchiveZip, colors.categoryArchives, colors.categoryArchives.copy(alpha = 0.2f))
+        else -> Triple(NovaIcons.Documents, colors.textSecondary, colors.surfaceElevated)
     }
 }

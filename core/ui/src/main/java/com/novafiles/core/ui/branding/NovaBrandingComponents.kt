@@ -124,8 +124,8 @@ fun AppIcon(
 fun AppWordmark(
     modifier: Modifier = Modifier,
     titleSize: TextUnit = 24.sp,
-    showBadge: Boolean = true,
-    badgeText: String = "2.0"
+    showBadge: Boolean = false,
+    badgeText: String = "v1.0"
 ) {
     Row(
         modifier = modifier,
@@ -177,7 +177,7 @@ fun AppLogo(
     modifier: Modifier = Modifier,
     iconSize: Dp = 44.dp,
     showWordmark: Boolean = true,
-    showBadge: Boolean = true,
+    showBadge: Boolean = false,
     showTagline: Boolean = false,
     tagline: String = "Advanced Storage & File Management Suite"
 ) {

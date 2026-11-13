@@ -134,42 +134,15 @@ fun NovaSplashScreen(
                 )
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "NovaFiles",
-                            style = NovaTheme.typography.display.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 32.sp
-                            ),
-                            color = NovaTheme.colors.textPrimary
-                        )
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(
-                                            Color(0xFF5B6EF5),
-                                            Color(0xFF8A6CFF)
-                                        )
-                                    )
-                                )
-                                .padding(horizontal = 9.dp, vertical = 3.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "2.0",
-                                style = NovaTheme.typography.caption.copy(
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
-                            )
-                        }
-                    }
+                    Text(
+                        text = "NovaFiles",
+                        style = NovaTheme.typography.display.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 34.sp,
+                            letterSpacing = (-0.5).sp
+                        ),
+                        color = NovaTheme.colors.textPrimary
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 

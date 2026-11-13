@@ -77,6 +77,7 @@ fun FtpServerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isRunning = uiState.serverState.isRunning
     val ftpUrl = "ftp://${uiState.serverState.ipAddress}:${uiState.config.port}"
+    val httpUrl = "http://${uiState.serverState.ipAddress}:${uiState.config.port + 1}"
 
     Box(
         modifier = modifier
@@ -201,13 +202,26 @@ fun FtpServerScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = ftpUrl,
-                                        color = NovaTheme.colors.primary,
-                                        style = NovaTheme.typography.body,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
+                                    Column {
+                                        Text(
+                                            text = ftpUrl,
+                                            color = NovaTheme.colors.primary,
+                                            style = NovaTheme.typography.body,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Text(
+                                            text = "Browser: $httpUrl",
+                                            color = NovaTheme.colors.textSecondary,
+                                            style = NovaTheme.typography.caption,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.clickable {
+                                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                cm.setPrimaryClip(ClipData.newPlainText("HTTP Share URL", httpUrl))
+                                                Toast.makeText(context, "Browser Share URL copied", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
 
                                     IconButton(
                                         onClick = {

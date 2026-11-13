@@ -74,7 +74,8 @@ fun StorageAnalyzerScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: StorageAnalyzerViewModel = viewModel(),
-    onOpenFile: (FileItem) -> Unit = {}
+    onOpenFile: (FileItem) -> Unit = {},
+    onNavigateToCleaner: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -91,8 +92,8 @@ fun StorageAnalyzerScreen(
             // Top App Bar
             StorageAnalyzerTopBar(
                 onNavigateBack = onNavigateBack,
-                onSearchClick = {},
-                onMenuClick = {}
+                onSearchClick = { viewModel.scanStorage() },
+                onMenuClick = onNavigateToCleaner
             )
 
             if (uiState.isLoading) {
@@ -114,8 +115,26 @@ fun StorageAnalyzerScreen(
                 ) {
                     // Upgrade Plan Highlight Card (Screen 3 visual reference)
                     item {
-                        UpgradePlanCard(onUpgradeClick = {})
+                        UpgradePlanCard(onUpgradeClick = onNavigateToCleaner)
                         Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+                    // Interactive Storage Treemap
+                    if (uiState.categories.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Storage Treemap",
+                                style = NovaTheme.typography.title,
+                                color = NovaTheme.colors.textPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            StorageTreemapCard(
+                                categories = uiState.categories,
+                                onCategoryClick = { viewModel.selectCategory(it) }
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
                     }
 
                     // Storage Overview Section
@@ -308,7 +327,7 @@ private fun UpgradePlanCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Upgrade Plan",
+                    text = "Deep Storage Cleaner",
                     color = Color.White,
                     style = NovaTheme.typography.title,
                     fontWeight = FontWeight.Bold,
@@ -316,7 +335,7 @@ private fun UpgradePlanCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Account to use\nmore Features.",
+                    text = "Scan & remove junk, cache,\nduplicates and obsolete APKs.",
                     color = Color.White.copy(alpha = 0.85f),
                     style = NovaTheme.typography.captionMedium,
                     fontSize = 13.sp
@@ -332,7 +351,7 @@ private fun UpgradePlanCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Upgrade",
+                        text = "Clean Now",
                         color = Color(0xFF2850C8),
                         fontWeight = FontWeight.Bold,
                         style = NovaTheme.typography.captionMedium
@@ -653,7 +672,7 @@ private fun CategoryFilesSheet(
                             formattedSize = FileFormatters.formatBytes(file.sizeBytes),
                             formattedDate = FileFormatters.formatDate(file.lastModifiedMs),
                             onClick = { onOpenFile(file) },
-                            onMenuClick = {}
+                            onMenuClick = { onOpenFile(file) }
                         )
                     }
                 }
@@ -718,6 +737,59 @@ private fun RecentlyDeletedFullSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun StorageTreemapCard(
+    categories: List<CategoryStorageItem>,
+    onCategoryClick: (FileType) -> Unit
+) {
+    val nonEmpty = categories.filter { it.sizeBytes > 0L }.sortedByDescending { it.sizeBytes }.take(5)
+    if (nonEmpty.isEmpty()) return
+    val total = nonEmpty.sumOf { it.sizeBytes }.coerceAtLeast(1L)
+
+    NovaCard(
+        shape = NovaTheme.shapes.large,
+        backgroundColor = NovaTheme.colors.surfaceElevated,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                nonEmpty.forEach { cat ->
+                    val weight = (cat.sizeBytes.toFloat() / total.toFloat()).coerceAtLeast(0.08f)
+                    Box(
+                        modifier = Modifier
+                            .weight(weight)
+                            .fillMaxSize()
+                            .background(cat.color.copy(alpha = 0.85f))
+                            .clickable { onCategoryClick(cat.type) }
+                            .padding(6.dp),
+                        contentAlignment = Alignment.BottomStart
+                    ) {
+                        Text(
+                            text = cat.name,
+                            style = NovaTheme.typography.caption,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+            Text(
+                text = "Tap any block to inspect category files",
+                style = NovaTheme.typography.caption,
+                color = NovaTheme.colors.textSecondary
+            )
         }
     }
 }

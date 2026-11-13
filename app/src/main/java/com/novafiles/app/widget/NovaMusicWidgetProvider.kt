@@ -118,7 +118,7 @@ abstract class BaseMusicWidgetProvider(private val isExpanded: Boolean) : AppWid
             }
         } else {
             views.setTextViewText(R.id.widget_track_title, "No track playing")
-            views.setTextViewText(R.id.widget_artist_name, "NovaFiles 2.0")
+            views.setTextViewText(R.id.widget_artist_name, "NovaFiles")
             views.setImageViewResource(R.id.widget_album_art, R.drawable.ic_widget_music_default)
         }
 

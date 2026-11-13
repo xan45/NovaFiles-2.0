@@ -99,16 +99,18 @@ object FtpServerEngine {
                         val clientSocket = server.accept()
                         clientSocket.soTimeout = CLIENT_TIMEOUT_MS
 
-                        synchronized(activeClients) {
+                        val newCount = synchronized(activeClients) {
                             if (activeClients.size >= MAX_ACTIVE_CLIENTS) {
                                 clientSocket.close()
                                 addLog("Rejected connection: max active clients reached ($MAX_ACTIVE_CLIENTS)")
-                                return@synchronized
+                                return@synchronized -1
                             }
                             activeClients.add(clientSocket)
+                            activeClients.size
                         }
+                        if (newCount < 0) continue
 
-                        _serverState.value = _serverState.value.copy(activeClientsCount = activeClients.size)
+                        _serverState.value = _serverState.value.copy(activeClientsCount = newCount)
                         addLog("Client connected: ${clientSocket.inetAddress.hostAddress}")
 
                         scope.launch(Dispatchers.IO) {
@@ -116,8 +118,11 @@ object FtpServerEngine {
                                 handleClient(clientSocket, config)
                             } finally {
                                 runCatching { clientSocket.close() }
-                                synchronized(activeClients) { activeClients.remove(clientSocket) }
-                                _serverState.value = _serverState.value.copy(activeClientsCount = activeClients.size)
+                                val updatedCount = synchronized(activeClients) {
+                                    activeClients.remove(clientSocket)
+                                    activeClients.size
+                                }
+                                _serverState.value = _serverState.value.copy(activeClientsCount = updatedCount)
                             }
                         }
                     } catch (e: Exception) {
@@ -161,13 +166,14 @@ object FtpServerEngine {
         var currentDir = sandboxRoot
         var isAuthenticated = false
         var currentUsername = ""
+        var failedAuthAttempts = 0
         var passiveDataServer: ServerSocket? = null
 
         try {
             val reader = BufferedReader(InputStreamReader(clientSocket.getInputStream()))
             val writer = PrintWriter(OutputStreamWriter(clientSocket.getOutputStream()), true)
 
-            writer.println("220 NovaFiles 2.0 Secure FTP Server Ready")
+            writer.println("220 NovaFiles FTP Server Ready")
 
             while (!clientSocket.isClosed) {
                 val line = reader.readLine() ?: break
@@ -195,8 +201,13 @@ object FtpServerEngine {
                             writer.println("230 Anonymous user logged in")
                         } else {
                             isAuthenticated = false
+                            failedAuthAttempts++
                             writer.println("530 Login incorrect")
                             addLog("Failed login attempt for user '$currentUsername'")
+                            if (failedAuthAttempts >= 5) {
+                                writer.println("421 Too many failed login attempts")
+                                break
+                            }
                         }
                     }
                     "QUIT" -> {
@@ -227,7 +238,7 @@ object FtpServerEngine {
                             "TYPE" -> writer.println("200 Type set to $arg")
                             "PASV" -> {
                                 passiveDataServer?.close()
-                                passiveDataServer = ServerSocket(0)
+                                passiveDataServer = ServerSocket(0).apply { soTimeout = CLIENT_TIMEOUT_MS }
                                 val port = passiveDataServer.localPort
                                 val ipParts = getLocalIpAddress().split(".")
                                 if (ipParts.size == 4) {
@@ -241,7 +252,7 @@ object FtpServerEngine {
                             }
                             "EPSV" -> {
                                 passiveDataServer?.close()
-                                passiveDataServer = ServerSocket(0)
+                                passiveDataServer = ServerSocket(0).apply { soTimeout = CLIENT_TIMEOUT_MS }
                                 val port = passiveDataServer.localPort
                                 writer.println("229 Entering Extended Passive Mode (|||$port|)")
                             }

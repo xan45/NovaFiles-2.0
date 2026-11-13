@@ -130,6 +130,20 @@ object VaultCryptoEngine {
     private fun getLockFor(file: File): ReentrantLock =
         fileLocks.computeIfAbsent(file.canonicalPath) { ReentrantLock() }
 
+    private inline fun <T> withOrderedLocks(first: File, second: File, block: () -> T): T {
+        val pathA = first.canonicalPath
+        val pathB = second.canonicalPath
+        if (pathA == pathB) {
+            return getLockFor(first).withLock(block)
+        }
+        val (lock1, lock2) = if (pathA < pathB) {
+            getLockFor(first) to getLockFor(second)
+        } else {
+            getLockFor(second) to getLockFor(first)
+        }
+        return lock1.withLock { lock2.withLock(block) }
+    }
+
     fun hasMasterKey(): Boolean = keyProvider.hasMasterKey()
     fun initMasterKey(): SecretKey = keyProvider.initMasterKey()
     fun getHardwareSecurityLevel(): HardwareSecurityLevel = keyProvider.getHardwareSecurityLevel()
@@ -167,8 +181,8 @@ object VaultCryptoEngine {
         val tempEncrypted = File(destinationVaultFile.parentFile, "${destinationVaultFile.name}.tmp")
         tempEncrypted.parentFile?.mkdirs()
 
-        getLockFor(sourceFile).withLock {
-            getLockFor(destinationVaultFile).withLock {
+        withOrderedLocks(sourceFile, destinationVaultFile) {
+            run {
                 try {
                     val iv = ByteArray(GCM_IV_LENGTH_BYTES)
                     secureRandom.nextBytes(iv)
@@ -202,7 +216,7 @@ object VaultCryptoEngine {
                     if (destinationVaultFile.exists()) destinationVaultFile.delete()
                     if (!tempEncrypted.renameTo(destinationVaultFile)) {
                         tempEncrypted.copyTo(destinationVaultFile, overwrite = true)
-                        tempEncrypted.delete()
+                        wipeAndSecureDelete(tempEncrypted)
                     }
 
                     // Securely wipe original file
@@ -225,8 +239,8 @@ object VaultCryptoEngine {
         val tempDecrypted = File(destinationPlaintextFile.parentFile, "${destinationPlaintextFile.name}.tmp")
         tempDecrypted.parentFile?.mkdirs()
 
-        getLockFor(vaultFile).withLock {
-            getLockFor(destinationPlaintextFile).withLock {
+        withOrderedLocks(vaultFile, destinationPlaintextFile) {
+            run {
                 try {
                     FileInputStream(vaultFile).use { fis ->
                         // 1. Read and verify Magic Header

@@ -66,7 +66,7 @@ data class StorageAnalyzerUiState(
     val showDeletedSheet: Boolean = false
 )
 
-class StorageAnalyzerViewModel(
+class StorageAnalyzerViewModel @JvmOverloads constructor(
     application: Application,
     private val storageVolumeManager: StorageVolumeManager = StorageVolumeManager(application)
 ) : AndroidViewModel(application) {

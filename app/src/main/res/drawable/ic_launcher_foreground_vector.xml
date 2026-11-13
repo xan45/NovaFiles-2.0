@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Subtle Squircle Inner Frame within 66dp safe zone -->
+    <path android:pathData="M54,19 C76,19 89,26 89,54 C89,82 76,89 54,89 C32,89 19,82 19,54 C19,26 32,19 54,19 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="22"
+                android:startY="22"
+                android:endX="86"
+                android:endY="86"
+                android:type="linear">
+                <item android:color="#FF1E2B58" android:offset="0.0" />
+                <item android:color="#FF121A38" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Squircle Luminous Border -->
+    <path
+        android:pathData="M54,19.8 C75.4,19.8 88.2,26.6 88.2,54 C88.2,81.4 75.4,88.2 54,88.2 C32.6,88.2 19.8,81.4 19.8,54 C19.8,26.6 32.6,19.8 54,19.8 Z"
+        android:strokeWidth="1.2">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="20"
+                android:startY="20"
+                android:endX="88"
+                android:endY="88"
+                android:type="linear">
+                <item android:color="#FF5B6EF5" android:offset="0.0" />
+                <item android:color="#FF8A6CFF" android:offset="0.5" />
+                <item android:color="#FF2DD4BF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Back Folder Tab -->
+    <path android:pathData="M34,35 C31.5,35 30,36.5 30,39 L30,68 C30,71 32.5,73 35.5,73 L72.5,73 C75.5,73 78,71 78,68 L78,44 C78,41.5 76,39.5 73.5,39.5 L55,39.5 C53,39.5 51,38 50,36.5 L48.5,35.5 C47.5,35.1 46.5,35 45,35 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="30"
+                android:startY="35"
+                android:endX="78"
+                android:endY="73"
+                android:type="linear">
+                <item android:color="#FF6C7BFF" android:offset="0.0" />
+                <item android:color="#FF4C5CE0" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Crisp Document Sheet Accent -->
+    <path
+        android:fillColor="#FFE2E8F0"
+        android:fillAlpha="0.92"
+        android:pathData="M36,40 L72,40 C73.5,40 74.5,41 74.5,42.5 L74.5,52 L33.5,52 L33.5,42.5 C33.5,41 34.5,40 36,40 Z" />
+
+    <!-- Front Folder Body -->
+    <path android:pathData="M29,44.5 C29,42.5 30.5,41 32.5,41 L75.5,41 C77.5,41 79,42.5 79,44.5 L77,69.5 C76.8,72 74.8,74 72.3,74 L35.7,74 C33.2,74 31.2,72 31,69.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="29"
+                android:startY="41"
+                android:endX="79"
+                android:endY="74"
+                android:type="linear">
+                <item android:color="#FF5B6EF5" android:offset="0.0" />
+                <item android:color="#FF7C5CFF" android:offset="0.55" />
+                <item android:color="#FF2DD4BF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Stylized "N" Monogram -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M43,66 L43,50 L47.2,50 L56.8,60.2 L56.8,50 L61,50 L61,66 L56.8,66 L47.2,55.8 L47.2,66 Z" />
+
+    <!-- Subtle Orbital Accent Arc -->
+    <path
+        android:pathData="M26,71 C36,80 68,78 82,58"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="26"
+                android:startY="71"
+                android:endX="82"
+                android:endY="58"
+                android:type="linear">
+                <item android:color="#002DD4BF" android:offset="0.0" />
+                <item android:color="#FF2DD4BF" android:offset="0.5" />
+                <item android:color="#FFFFFFFF" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -27,7 +30,8 @@ data class MusicPlayerUiState(
     val libraryTracks: List<FileItem> = emptyList(),
     val currentTab: MusicLibraryTab = MusicLibraryTab.TRACKS,
     val isQueueSheetVisible: Boolean = false,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val sleepTimerMinutesRemaining: Int? = null
 )
 
 class MusicPlayerViewModel(
@@ -75,6 +79,28 @@ class MusicPlayerViewModel(
 
     fun setLibraryTab(tab: MusicLibraryTab) {
         _uiState.update { it.copy(currentTab = tab) }
+    }
+
+    private var sleepTimerJob: Job? = null
+
+    fun startSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes <= 0) {
+            _uiState.update { it.copy(sleepTimerMinutesRemaining = null) }
+            return
+        }
+        _uiState.update { it.copy(sleepTimerMinutesRemaining = minutes) }
+        sleepTimerJob = viewModelScope.launch {
+            var remaining = minutes
+            while (isActive && remaining > 0) {
+                delay(60_000L)
+                remaining--
+                _uiState.update { it.copy(sleepTimerMinutesRemaining = if (remaining > 0) remaining else null) }
+            }
+            if (isActive && MusicPlaybackManager.state.value.isPlaying) {
+                MusicPlaybackManager.togglePlayPause()
+            }
+        }
     }
 
     fun toggleQueueSheet(visible: Boolean) {

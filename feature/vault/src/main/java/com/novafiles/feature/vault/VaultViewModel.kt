@@ -18,6 +18,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 enum class VaultState {
     SETUP_PIN,
@@ -54,6 +55,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private val pinSecurityManager = PinSecurityManager(application)
     private val primaryVaultDir = File(application.filesDir, "vault_primary").apply { mkdirs() }
     private val decoyVaultDir = File(application.filesDir, "vault_decoy").apply { mkdirs() }
+    private val previewCacheDir = File(application.cacheDir, "vault_preview").apply { mkdirs() }
 
     private val _uiState = MutableStateFlow(VaultUiState())
     val uiState: StateFlow<VaultUiState> = _uiState.asStateFlow()
@@ -108,38 +110,44 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun processEnteredPin(pin: String) {
         val currentState = _uiState.value.state
-        if (currentState == VaultState.SETUP_PIN) {
-            pinSecurityManager.setPin(pin.toCharArray())
-            _uiState.update { it.copy(state = VaultState.UNLOCKED, enteredPin = "") }
-            loadVaultFiles(primaryVaultDir)
-        } else {
-            val result = pinSecurityManager.verifyPin(pin.toCharArray())
-            when (result) {
-                is PinVerificationResult.Success -> {
-                    _uiState.update { it.copy(state = VaultState.UNLOCKED, enteredPin = "", errorMessage = null) }
-                    loadVaultFiles(primaryVaultDir)
+        viewModelScope.launch {
+            if (currentState == VaultState.SETUP_PIN) {
+                withContext(Dispatchers.Default) {
+                    pinSecurityManager.setPin(pin.toCharArray())
                 }
-                is PinVerificationResult.DecoySuccess -> {
-                    _uiState.update { it.copy(state = VaultState.DECOY_UNLOCKED, enteredPin = "", errorMessage = null) }
-                    loadVaultFiles(decoyVaultDir)
+                _uiState.update { it.copy(state = VaultState.UNLOCKED, enteredPin = "") }
+                loadVaultFiles(primaryVaultDir)
+            } else {
+                val result = withContext(Dispatchers.Default) {
+                    pinSecurityManager.verifyPin(pin.toCharArray())
                 }
-                is PinVerificationResult.LockedOut -> {
-                    _uiState.update {
-                        it.copy(
-                            state = VaultState.LOCKED_OUT,
-                            enteredPin = "",
-                            lockoutSeconds = result.secondsRemaining,
-                            errorMessage = "Locked out for ${result.secondsRemaining} seconds."
-                        )
+                when (result) {
+                    is PinVerificationResult.Success -> {
+                        _uiState.update { it.copy(state = VaultState.UNLOCKED, enteredPin = "", errorMessage = null) }
+                        loadVaultFiles(primaryVaultDir)
                     }
-                    startLockoutCountdown(result.secondsRemaining)
-                }
-                is PinVerificationResult.Invalid -> {
-                    _uiState.update {
-                        it.copy(
-                            enteredPin = "",
-                            errorMessage = "Incorrect PIN. ${result.attemptsRemaining} attempts remaining."
-                        )
+                    is PinVerificationResult.DecoySuccess -> {
+                        _uiState.update { it.copy(state = VaultState.DECOY_UNLOCKED, enteredPin = "", errorMessage = null) }
+                        loadVaultFiles(decoyVaultDir)
+                    }
+                    is PinVerificationResult.LockedOut -> {
+                        _uiState.update {
+                            it.copy(
+                                state = VaultState.LOCKED_OUT,
+                                enteredPin = "",
+                                lockoutSeconds = result.secondsRemaining,
+                                errorMessage = "Locked out for ${result.secondsRemaining} seconds."
+                            )
+                        }
+                        startLockoutCountdown(result.secondsRemaining)
+                    }
+                    is PinVerificationResult.Invalid -> {
+                        _uiState.update {
+                            it.copy(
+                                enteredPin = "",
+                                errorMessage = "Incorrect PIN. ${result.attemptsRemaining} attempts remaining."
+                            )
+                        }
                     }
                 }
             }
@@ -151,11 +159,44 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         loadVaultFiles(primaryVaultDir)
     }
 
+    private fun readEncryptedIndex(dir: File): MutableMap<String, String> {
+        val indexFile = File(dir, "vault_index.enc")
+        if (!indexFile.exists()) return mutableMapOf()
+        val tempPlain = File(previewCacheDir, "idx_${dir.name}.tmp")
+        return try {
+            VaultCryptoEngine.decryptFile(indexFile, tempPlain)
+            val map = mutableMapOf<String, String>()
+            tempPlain.readLines().forEach { line ->
+                val sep = line.indexOf('|')
+                if (sep > 0) map[line.substring(0, sep)] = line.substring(sep + 1)
+            }
+            map
+        } catch (_: Exception) {
+            mutableMapOf()
+        } finally {
+            VaultCryptoEngine.wipeAndSecureDelete(tempPlain)
+        }
+    }
+
+    private fun writeEncryptedIndex(dir: File, map: Map<String, String>) {
+        val indexFile = File(dir, "vault_index.enc")
+        val tempPlain = File(previewCacheDir, "idx_w_${dir.name}.tmp")
+        try {
+            tempPlain.writeText(map.entries.joinToString("\n") { "${it.key}|${it.value}" })
+            VaultCryptoEngine.encryptFile(tempPlain, indexFile)
+        } catch (_: Exception) {
+        } finally {
+            VaultCryptoEngine.wipeAndSecureDelete(tempPlain)
+        }
+    }
+
     fun loadVaultFiles(dir: File = if (_uiState.value.state == VaultState.DECOY_UNLOCKED) decoyVaultDir else primaryVaultDir) {
         viewModelScope.launch {
             val items = withContext(Dispatchers.IO) {
-                dir.listFiles()?.filter { it.isFile && it.extension == "nova" }?.map {
-                    VaultItem(file = it)
+                val index = readEncryptedIndex(dir)
+                dir.listFiles()?.filter { it.isFile && it.extension == "nova" }?.map { f ->
+                    val resolvedName = index[f.name] ?: f.name.removeSuffix(".nova")
+                    VaultItem(file = f, originalName = resolvedName)
                 } ?: emptyList()
             }
             _uiState.update { it.copy(vaultItems = items.sortedByDescending { it.lastModified }) }
@@ -165,38 +206,79 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     fun encryptFileToVault(sourceFile: File) {
         viewModelScope.launch {
             val activeDir = if (_uiState.value.state == VaultState.DECOY_UNLOCKED) decoyVaultDir else primaryVaultDir
-            val vaultFile = File(activeDir, "${sourceFile.name}.nova")
-            withContext(Dispatchers.IO) {
-                VaultCryptoEngine.encryptFile(sourceFile, vaultFile)
+            val obfuscatedName = "${UUID.randomUUID()}.nova"
+            val vaultFile = File(activeDir, obfuscatedName)
+            try {
+                withContext(Dispatchers.IO) {
+                    VaultCryptoEngine.encryptFile(sourceFile, vaultFile)
+                    val index = readEncryptedIndex(activeDir)
+                    index[obfuscatedName] = sourceFile.name
+                    writeEncryptedIndex(activeDir, index)
+                }
+                loadVaultFiles(activeDir)
+                _uiState.update { it.copy(showAddFileDialog = false, errorMessage = null) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Encryption failed: ${e.message}") }
             }
-            loadVaultFiles(activeDir)
-            _uiState.update { it.copy(showAddFileDialog = false) }
+        }
+    }
+
+    fun previewVaultItem(vaultItem: VaultItem, onReady: (File) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val tempOut = File(previewCacheDir, vaultItem.originalName)
+                withContext(Dispatchers.IO) {
+                    VaultCryptoEngine.decryptFile(vaultItem.file, tempOut)
+                }
+                onReady(tempOut)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Preview failed: ${e.message}") }
+            }
         }
     }
 
     fun restoreFile(vaultItem: VaultItem, destinationDir: File) {
         viewModelScope.launch {
+            val activeDir = if (_uiState.value.state == VaultState.DECOY_UNLOCKED) decoyVaultDir else primaryVaultDir
             val destFile = File(destinationDir, vaultItem.originalName)
-            withContext(Dispatchers.IO) {
-                VaultCryptoEngine.decryptFile(vaultItem.file, destFile)
-                VaultCryptoEngine.wipeAndSecureDelete(vaultItem.file)
+            try {
+                withContext(Dispatchers.IO) {
+                    VaultCryptoEngine.decryptFile(vaultItem.file, destFile)
+                    VaultCryptoEngine.wipeAndSecureDelete(vaultItem.file)
+                    val index = readEncryptedIndex(activeDir)
+                    if (index.remove(vaultItem.file.name) != null) {
+                        writeEncryptedIndex(activeDir, index)
+                    }
+                }
+                loadVaultFiles()
+                _uiState.update { it.copy(selectedItemForRestore = null, errorMessage = null) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Restore failed: ${e.message}") }
             }
-            loadVaultFiles()
-            _uiState.update { it.copy(selectedItemForRestore = null) }
         }
     }
 
     fun deleteVaultFile(vaultItem: VaultItem) {
         viewModelScope.launch {
+            val activeDir = if (_uiState.value.state == VaultState.DECOY_UNLOCKED) decoyVaultDir else primaryVaultDir
             withContext(Dispatchers.IO) {
                 VaultCryptoEngine.wipeAndSecureDelete(vaultItem.file)
+                val index = readEncryptedIndex(activeDir)
+                if (index.remove(vaultItem.file.name) != null) {
+                    writeEncryptedIndex(activeDir, index)
+                }
             }
             loadVaultFiles()
             _uiState.update { it.copy(selectedItemForDelete = null) }
         }
     }
 
+    private fun wipePreviewCache() {
+        previewCacheDir.listFiles()?.forEach { VaultCryptoEngine.wipeAndSecureDelete(it) }
+    }
+
     fun lockVault() {
+        viewModelScope.launch(Dispatchers.IO) { wipePreviewCache() }
         _uiState.update {
             it.copy(
                 state = VaultState.LOCKED,
@@ -207,7 +289,9 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDecoyPin(pin: String) {
-        pinSecurityManager.setDecoyPin(pin.toCharArray())
+        viewModelScope.launch(Dispatchers.Default) {
+            pinSecurityManager.setDecoyPin(pin.toCharArray())
+        }
     }
 
     fun toggleBiometric(enabled: Boolean) {
@@ -240,6 +324,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         lockoutCountdownJob?.cancel()
+        wipePreviewCache()
         super.onCleared()
     }
 }

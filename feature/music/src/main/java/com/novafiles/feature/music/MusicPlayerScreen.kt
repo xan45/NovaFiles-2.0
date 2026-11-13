@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import android.content.Context
+import android.content.Intent
+import android.media.AudioManager
+import android.media.audiofx.AudioEffect
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
@@ -145,10 +152,10 @@ fun MusicPlayerScreen(
                     color = NovaTheme.colors.textPrimary
                 )
 
-                IconButton(onClick = {}) {
+                IconButton(onClick = { onToggleQueue(true) }) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
+                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                        contentDescription = "Playback Queue",
                         tint = NovaTheme.colors.textPrimary
                     )
                 }
@@ -244,8 +251,113 @@ private fun FullMusicPlayerContent(
 ) {
     val track = playback.currentTrack
 
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isWideOrLandscape = maxWidth > 600.dp || maxWidth > maxHeight
+        if (isWideOrLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 28.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .aspectRatio(1f)
+                        .shadow(NovaTheme.elevation.level4, RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(NovaTheme.colors.surfaceElevated),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val artFile = track?.albumArtFile
+                    if (artFile != null && artFile.exists()) {
+                        AsyncImage(
+                            model = artFile,
+                            contentDescription = "Album Art",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = track?.avatarLetter ?: "♪",
+                            style = NovaTheme.typography.display,
+                            color = Color.White
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track?.title ?: "No Track Playing",
+                                style = NovaTheme.typography.title,
+                                color = NovaTheme.colors.textPrimary,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = track?.artist ?: "Unknown Artist",
+                                style = NovaTheme.typography.subtitle,
+                                color = NovaTheme.colors.textSecondary,
+                                maxLines = 1
+                            )
+                        }
+                        IconButton(onClick = onToggleFavorite) {
+                            Icon(
+                                imageVector = if (playback.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Favorite",
+                                tint = if (playback.isFavorite) NovaTheme.colors.categoryVideos else NovaTheme.colors.textSecondary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Slider(
+                        value = playback.progressFraction,
+                        onValueChange = { frac -> onSeekTo((frac * playback.durationMs).toLong()) },
+                        colors = SliderDefaults.colors(
+                            thumbColor = NovaTheme.colors.primary,
+                            activeTrackColor = NovaTheme.colors.primary,
+                            inactiveTrackColor = NovaTheme.colors.cardBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onToggleShuffle) {
+                            Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = if (playback.isShuffleEnabled) NovaTheme.colors.primary else NovaTheme.colors.textSecondary)
+                        }
+                        IconButton(onClick = onSkipPrevious) {
+                            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = NovaTheme.colors.textPrimary)
+                        }
+                        IconButton(onClick = onTogglePlayPause) {
+                            Icon(if (playback.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = "Play/Pause", tint = NovaTheme.colors.primary, modifier = Modifier.size(40.dp))
+                        }
+                        IconButton(onClick = onSkipNext) {
+                            Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = NovaTheme.colors.textPrimary)
+                        }
+                        IconButton(onClick = onToggleRepeat) {
+                            Icon(Icons.Default.Repeat, contentDescription = "Repeat", tint = if (playback.repeatMode != Player.REPEAT_MODE_OFF) NovaTheme.colors.primary else NovaTheme.colors.textSecondary)
+                        }
+                    }
+                }
+            }
+        } else {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -416,18 +528,41 @@ private fun FullMusicPlayerContent(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val context = LocalContext.current
             IconButton(onClick = onOpenQueue) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Queue", tint = NovaTheme.colors.textSecondary)
             }
-            IconButton(onClick = {}) {
+            IconButton(onClick = {
+                try {
+                    val eqIntent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+                        putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+                        putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+                    }
+                    context.startActivity(eqIntent)
+                } catch (_: Exception) {
+                    Toast.makeText(context, "System Equalizer not available", Toast.LENGTH_SHORT).show()
+                }
+            }) {
                 Icon(imageVector = Icons.Default.Equalizer, contentDescription = "Equalizer", tint = NovaTheme.colors.textSecondary)
             }
-            IconButton(onClick = {}) {
+            IconButton(onClick = {
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                audioManager?.adjustStreamVolume(
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.ADJUST_SAME,
+                    AudioManager.FLAG_SHOW_UI
+                )
+            }) {
                 Icon(imageVector = Icons.Default.VolumeUp, contentDescription = "Volume", tint = NovaTheme.colors.textSecondary)
             }
-            IconButton(onClick = {}) {
-                Icon(imageVector = Icons.Default.MoreHoriz, contentDescription = "More", tint = NovaTheme.colors.textSecondary)
+            IconButton(onClick = {
+                val info = "${track?.title ?: "Track"} • ${track?.artist ?: "Unknown"} (${track?.bitrate ?: "Audio"})"
+                Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(imageVector = Icons.Default.MoreHoriz, contentDescription = "Track Info", tint = NovaTheme.colors.textSecondary)
             }
+        }
+    }
         }
     }
 }

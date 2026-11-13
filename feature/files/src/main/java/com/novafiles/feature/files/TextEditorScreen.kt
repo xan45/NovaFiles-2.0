@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -178,9 +180,10 @@ fun TextEditorScreen(
                         .fillMaxSize()
                         .padding(16.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF070B18))
+                        .background(NovaTheme.colors.surface)
                         .border(1.dp, NovaTheme.colors.cardBorder, RoundedCornerShape(12.dp))
                         .padding(16.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     BasicTextField(
                         value = textContent,

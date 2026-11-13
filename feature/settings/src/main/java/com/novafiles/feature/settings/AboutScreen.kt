@@ -103,7 +103,7 @@ fun AboutScreen(
         }
     }
 
-    val versionName = packageInfo?.versionName ?: "2.0.0-alpha1"
+    val versionName = packageInfo?.versionName ?: "1.0.0"
     val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         packageInfo?.longVersionCode ?: 9L
     } else {
@@ -127,7 +127,7 @@ fun AboutScreen(
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:$supportEmail")
-                putExtra(Intent.EXTRA_SUBJECT, "NovaFiles 2.0 Inquiries & Feedback")
+                putExtra(Intent.EXTRA_SUBJECT, "NovaFiles Inquiries & Feedback")
             }
             context.startActivity(intent)
         } catch (e: Exception) {
@@ -261,7 +261,7 @@ fun AboutScreen(
                             text = { Text("Visit GitHub Repository") },
                             onClick = {
                                 showOverflowMenu = false
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/xan45/NovaFiles-2.0"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/xan45/NovaFiles"))
                                 context.startActivity(intent)
                             }
                         )

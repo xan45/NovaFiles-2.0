@@ -1,4 +1,4 @@
-# NovaFiles 2.0
+# NovaFiles
 
 > **Next-Generation Android File Manager, Media Studio & Storage Optimization Suite**  
 > Built with modern Kotlin, Jetpack Compose, Clean Architecture, and AndroidX Media3.
@@ -13,15 +13,15 @@
 
 ## 🌟 Overview
 
-**NovaFiles 2.0** is a clean-slate, ground-up rewrite engineered from the approved architectural blueprint. It replaces legacy file management systems with a decoupled, reactive, multi-module architecture adhering strictly to Google's recommended Modern Android Architecture standards.
+**NovaFiles** is a clean-slate, ground-up rewrite engineered from the approved architectural blueprint. It replaces legacy file management systems with a decoupled, reactive, multi-module architecture adhering strictly to Google's recommended Modern Android Architecture standards.
 
-Designed around a signature **Dark Navy** aesthetic (`#0B1226`, `#111B3A`, `#1A2547`, `#2A3A6A`, `#5B6EF5`), NovaFiles 2.0 pairs high-performance storage indexing with a desktop-grade feature set.
+Designed around a signature **Dark Navy** aesthetic (`#0B1226`, `#111B3A`, `#1A2547`, `#2A3A6A`, `#5B6EF5`), NovaFiles pairs high-performance storage indexing with a desktop-grade feature set.
 
 ---
 
 ## 🎨 Visual Design Language & Themes
 
-NovaFiles 2.0 implements an 18-variation design engine supporting dynamic real-time theme swapping:
+NovaFiles implements an 18-variation design engine supporting dynamic real-time theme swapping:
 
 * **Theme Modes:**
   * **Dark Navy (Default):** Deep midnight blue canvas (`#0B1226`), elevated slate surfaces (`#111B3A`, `#1A2547`), subtle borders (`#2A3A6A`).
@@ -37,7 +37,7 @@ NovaFiles 2.0 implements an 18-variation design engine supporting dynamic real-t
 The codebase is organized into **17 cohesive, decoupled Gradle modules**:
 
 ```text
-NovaFiles-2.0/
+NovaFiles/
 ├── app/                  # Application bootstrap, navigation graph, app widgets
 ├── core/
 │   ├── common/           # Result types, formatters, coroutine dispatchers
@@ -136,7 +136,7 @@ To execute the test suite:
 ```
 
 ### Production Release Build (R8 / Minified & Shrunk)
-NovaFiles 2.0 uses R8 whole-program optimization and resource shrinking:
+NovaFiles uses R8 whole-program optimization and resource shrinking:
 * **Debug APK Size:** ~25.1 MB
 * **Release APK Size:** **~4.9 MB (~80% reduction)**
 * **Zero Lint Vital Errors**
@@ -154,8 +154,8 @@ The resulting signed APK is placed at:
 
 > [!WARNING]
 > **Clean Installation Required for Upgrades from Legacy v1.x**  
-> NovaFiles 2.0 is a complete ground-up rewrite featuring a modernized database schema, multi-module architecture, and an updated release signing key.  
-> * If you have any previous legacy build (v1.0.0-beta1 through v1.0.0-rc.2-build3) installed on your device, you **must completely uninstall the old version** before installing NovaFiles 2.0.
+> NovaFiles is a complete ground-up rewrite featuring a modernized database schema, multi-module architecture, and an updated release signing key.  
+> * If you have any previous legacy build (v1.0.0-beta1 through v1.0.0-rc.2-build3) installed on your device, you **must completely uninstall the old version** before installing NovaFiles.
 > * In-place updates over legacy builds will result in an `INSTALL_FAILED_UPDATE_INCOMPATIBLE` signature mismatch error from the Android Package Manager.
 > * Ensure you back up any unencrypted vault files before uninstalling previous legacy versions.
 
@@ -163,7 +163,7 @@ The resulting signed APK is placed at:
 
 ## 📱 Physical Device Verification
 
-NovaFiles 2.0 has been verified on physical hardware running Android 17 / SDK 37:
+NovaFiles has been verified on physical hardware running Android 17 / SDK 37:
 * **Target Hardware**: Samsung Galaxy (`SM-S942B`), Octa-core ARM64-v8a.
 * **OS Version**: Android 17 (API 37).
 * **Storage Diagnostics**: Verified live scanning of internal storage, identifying 2.1 GB of reclaimable junk and 35 obsolete APK installers with sub-second responsiveness.
@@ -174,7 +174,7 @@ NovaFiles 2.0 has been verified on physical hardware running Android 17 / SDK 37
 
 ## 🔒 Privacy & Security
 
-* **100% Offline**: NovaFiles 2.0 requires zero internet permissions for core file management.
+* **100% Offline**: NovaFiles requires zero internet permissions for core file management.
 * **Zero Telemetry**: No analytics SDKs, no ad trackers, and no remote crash reporting beacons.
 * **Local Processing**: Storage analysis, duplicate detection, and encryption take place 100% on-device.
 * **Sandboxed Wi-Fi FTP**: Wireless transfers operate strictly over the user's local Wi-Fi subnet with canonical path-traversal sandboxing.
@@ -186,7 +186,7 @@ NovaFiles 2.0 has been verified on physical hardware running Android 17 / SDK 37
 * **Lead Developer & Maintainer**: **Abhinav Kishore (Xan45)**
 * **Engineering Platform**: Crafted with **Google Antigravity**
 * **Support & Inquiries**: [xandronhq@gmail.com](mailto:xandronhq@gmail.com)
-* **Official Repository**: [https://github.com/xan45/NovaFiles-2.0](https://github.com/xan45/NovaFiles-2.0)
+* **Official Repository**: [https://github.com/xan45/NovaFiles](https://github.com/xan45/NovaFiles)
 * **Legacy Archive**: [https://github.com/xan45/NovaFiles-Legacy](https://github.com/xan45/NovaFiles-Legacy) (Historical reference only)
 
 ---

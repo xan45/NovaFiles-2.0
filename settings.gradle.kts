@@ -24,7 +24,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NovaFiles 2.0"
+rootProject.name = "NovaFiles"
 
 include(":app")
 include(":core:common")

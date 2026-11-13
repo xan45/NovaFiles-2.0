@@ -67,6 +67,7 @@ class FtpForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 FtpServerEngine.stop()
+                HttpFileShareServer.stop()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
@@ -74,7 +75,7 @@ class FtpForegroundService : Service() {
             ACTION_START -> {
                 val port = intent.getIntExtra(EXTRA_PORT, 2121)
                 val user = intent.getStringExtra(EXTRA_USER) ?: "novafiles"
-                val pass = intent.getStringExtra(EXTRA_PASS) ?: "123456"
+                val pass = intent.getStringExtra(EXTRA_PASS) ?: FtpServerConfig.generateSecurePassword()
                 val anon = intent.getBooleanExtra(EXTRA_ANON, false)
                 val readOnly = intent.getBooleanExtra(EXTRA_READ_ONLY, true)
                 val root = intent.getStringExtra(EXTRA_ROOT) ?: "/storage/emulated/0"
@@ -89,6 +90,7 @@ class FtpForegroundService : Service() {
                 )
 
                 FtpServerEngine.start(config, serviceScope)
+                HttpFileShareServer.start(root, port + 1, serviceScope)
 
                 val ip = FtpServerEngine.getLocalIpAddress()
                 val notification = buildNotification(ip, port)
@@ -140,6 +142,7 @@ class FtpForegroundService : Service() {
 
     override fun onDestroy() {
         FtpServerEngine.stop()
+        HttpFileShareServer.stop()
         serviceScope.cancel()
         super.onDestroy()
     }

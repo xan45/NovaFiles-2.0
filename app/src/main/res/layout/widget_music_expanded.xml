@@ -74,7 +74,7 @@
                 android:layout_marginTop="2dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="NovaFiles 2.0"
+                android:text="NovaFiles"
                 android:textColor="#CBD5E1"
                 android:textSize="13sp" />
 

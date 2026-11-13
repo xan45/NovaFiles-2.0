@@ -8,7 +8,9 @@ import android.view.WindowManager
 import androidx.annotation.OptIn
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -125,7 +127,20 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
             )
         }
 
-        val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
+        val subConfigs = listOf("srt", "vtt").mapNotNull { ext ->
+            val subFile = File(file.parentFile, "${file.nameWithoutExtension}.$ext")
+            if (subFile.exists() && subFile.isFile) {
+                val mime = if (ext == "vtt") MimeTypes.TEXT_VTT else MimeTypes.APPLICATION_SUBRIP
+                MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(subFile))
+                    .setMimeType(mime)
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+            } else null
+        }
+        val mediaItem = MediaItem.Builder()
+            .setUri(Uri.fromFile(file))
+            .setSubtitleConfigurations(subConfigs)
+            .build()
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = true

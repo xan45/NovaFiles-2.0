@@ -108,14 +108,14 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
         val obsoleteApkItems = mutableListOf<JunkItem>()
         val allSmallFiles = mutableListOf<File>()
 
-        // 1. App Cache directories
-        val cacheDirs = listOf(
+        // 1. App Cache directories (deduplicated by canonical path)
+        val cacheDirs = listOfNotNull(
             File(root, "Android/data"),
             File(root, ".thumbnails"),
             File(root, "DCIM/.thumbnails"),
             getApplication<Application>().cacheDir,
             getApplication<Application>().externalCacheDir
-        ).filterNotNull()
+        ).distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
 
         for (cDir in cacheDirs) {
             if (cDir.exists() && cDir.canRead()) {
@@ -127,12 +127,12 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
             }
         }
 
-        // 2. Scan Downloads & Documents for temp, logs, APKs, empty folders, duplicates
-        val targetDirs = listOf(
+        // 2. Scan Downloads & Documents for temp, logs, APKs, empty folders, duplicates (deduplicated)
+        val targetDirs = listOfNotNull(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
             File(root, "Download")
-        ).filterNotNull()
+        ).distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
 
         for (tDir in targetDirs) {
             if (!tDir.exists() || !tDir.canRead()) continue
@@ -162,7 +162,8 @@ class StorageCleanerViewModel(application: Application) : AndroidViewModel(appli
 
         // 3. Duplicate detection by size grouping and full SHA-256 stream checksum
         val duplicates = mutableListOf<JunkItem>()
-        val bySize = allSmallFiles.groupBy { it.length() }.filter { it.value.size > 1 }
+        val uniqueSmallFiles = allSmallFiles.distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
+        val bySize = uniqueSmallFiles.groupBy { it.length() }.filter { it.value.size > 1 }
         for ((_, files) in bySize) {
             val byHash = files.groupBy { computeFileChecksum(it) }
             for ((hash, matchingFiles) in byHash) {

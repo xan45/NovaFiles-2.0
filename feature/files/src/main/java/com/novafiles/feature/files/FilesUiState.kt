@@ -10,6 +10,16 @@ data class BreadcrumbItem(
 
 enum class ClipboardOp { COPY, MOVE }
 
+enum class FileTypeFilter(val label: String) {
+    ALL("All"),
+    IMAGES("Images"),
+    VIDEOS("Videos"),
+    AUDIO("Audio"),
+    DOCUMENTS("Docs & PDF"),
+    ARCHIVES("Archives"),
+    APKS("APKs")
+}
+
 data class ClipboardState(
     val files: List<FileItem> = emptyList(),
     val op: ClipboardOp = ClipboardOp.COPY
@@ -30,6 +40,8 @@ data class FilesUiState(
     val clipboard: ClipboardState? = null,
     val errorMessage: String? = null,
     val searchQuery: String = "",
+    val activeFilter: FileTypeFilter = FileTypeFilter.ALL,
+    val bookmarks: List<BreadcrumbItem> = emptyList(),
     val hasStoragePermission: Boolean = true
 ) {
     val selectedCount: Int get() = selectedIds.size

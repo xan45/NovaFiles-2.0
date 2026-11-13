@@ -331,7 +331,7 @@ fun SettingsScreen(
 
                 // Section 5: About & System
                 item {
-                    SettingsSectionTitle("About NovaFiles 2.0")
+                    SettingsSectionTitle("About NovaFiles")
                     Spacer(modifier = Modifier.height(10.dp))
 
                     NovaCard(
@@ -344,7 +344,7 @@ fun SettingsScreen(
                         ) {
                             SettingsActionRow(
                                 title = "About NovaFiles",
-                                subtitle = "Advanced Storage & File Management Suite • 2.0",
+                                subtitle = "Advanced Storage & File Management Suite • v1.0.0",
                                 icon = Icons.Rounded.Info,
                                 onClick = onNavigateToAbout
                             )

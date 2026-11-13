@@ -11,11 +11,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.novafiles"
+        applicationId = "com.novafiles.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 10
-        versionName = "2.0.0-alpha2"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -44,22 +44,15 @@ android {
             if (isConfigured) {
                 val rawFile = File(releaseStorePath)
                 val ksFile = if (rawFile.isAbsolute) rawFile else rootProject.file(releaseStorePath)
-                if (ksFile.exists()) {
-                    storeFile = ksFile
-                    storePassword = releaseStorePassword
-                    keyAlias = releaseKeyAlias
-                    keyPassword = releaseKeyPassword
-                } else {
-                    storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-                    storePassword = "android"
-                    keyAlias = "androiddebugkey"
-                    keyPassword = "android"
+                if (!ksFile.exists()) {
+                    throw GradleException("Release keystore not found at: ${ksFile.absolutePath}")
                 }
-            } else {
-                storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+                storeFile = ksFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            } else if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }) {
+                throw GradleException("Release signing is not configured. Set KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD.")
             }
         }
     }
@@ -116,6 +109,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

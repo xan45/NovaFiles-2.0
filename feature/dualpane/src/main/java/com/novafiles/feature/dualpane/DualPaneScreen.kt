@@ -52,6 +52,7 @@ import com.novafiles.core.ui.components.NovaCard
 import com.novafiles.core.ui.components.NovaFileRow
 import com.novafiles.core.ui.components.NovaLinearProgress
 import com.novafiles.core.ui.components.NovaLoadingState
+import com.novafiles.core.model.FileItem
 import com.novafiles.feature.files.FilesUiState
 
 @Composable
@@ -66,6 +67,7 @@ fun DualPaneScreen(
     onMoveAcross: () -> Unit,
     onSyncPanes: () -> Unit,
     onSwapPanes: () -> Unit,
+    onFileClick: (FileItem) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -113,6 +115,7 @@ fun DualPaneScreen(
                             isActive = uiState.activePane == ActivePane.PANE_A,
                             onPaneClick = { onSetActivePane(ActivePane.PANE_A) },
                             onFolderClick = onFolderClickA,
+                            onFileClick = onFileClick,
                             onToggleSelect = onToggleSelectA,
                             modifier = Modifier
                                 .weight(1f)
@@ -125,6 +128,7 @@ fun DualPaneScreen(
                             isActive = uiState.activePane == ActivePane.PANE_B,
                             onPaneClick = { onSetActivePane(ActivePane.PANE_B) },
                             onFolderClick = onFolderClickB,
+                            onFileClick = onFileClick,
                             onToggleSelect = onToggleSelectB,
                             modifier = Modifier
                                 .weight(1f)
@@ -139,6 +143,7 @@ fun DualPaneScreen(
                             isActive = uiState.activePane == ActivePane.PANE_A,
                             onPaneClick = { onSetActivePane(ActivePane.PANE_A) },
                             onFolderClick = onFolderClickA,
+                            onFileClick = onFileClick,
                             onToggleSelect = onToggleSelectA,
                             modifier = Modifier
                                 .weight(1f)
@@ -151,6 +156,7 @@ fun DualPaneScreen(
                             isActive = uiState.activePane == ActivePane.PANE_B,
                             onPaneClick = { onSetActivePane(ActivePane.PANE_B) },
                             onFolderClick = onFolderClickB,
+                            onFileClick = onFileClick,
                             onToggleSelect = onToggleSelectB,
                             modifier = Modifier
                                 .weight(1f)
@@ -263,6 +269,7 @@ private fun PaneView(
     isActive: Boolean,
     onPaneClick: () -> Unit,
     onFolderClick: (String) -> Unit,
+    onFileClick: (FileItem) -> Unit,
     onToggleSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -354,8 +361,10 @@ private fun PaneView(
                                     onClick = {
                                         if (item.isDirectory) {
                                             onFolderClick(item.path)
-                                        } else {
+                                        } else if (uiState.isSelectionMode) {
                                             onToggleSelect(item.id)
+                                        } else {
+                                            onFileClick(item)
                                         }
                                     },
                                     onMenuClick = { onToggleSelect(item.id) }

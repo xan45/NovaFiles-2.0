@@ -1,5 +1,6 @@
 package com.novafiles.core.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -9,18 +10,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -30,15 +27,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.novafiles.core.designsystem.theme.NovaTheme
+import com.novafiles.core.ui.icons.NovaIcons
 
 enum class NovaNavTab(val icon: ImageVector, val label: String) {
-    HOME(Icons.Default.Home, "Home"),
-    FILES(Icons.Default.Folder, "Files"),
-    DUAL(Icons.Default.SwapHoriz, "Dual"),
-    VAULT(Icons.Default.Cloud, "Vault"),
-    SETTINGS(Icons.Default.Person, "Settings")
+    HOME(NovaIcons.Home, "Home"),
+    FILES(NovaIcons.Folder, "Files"),
+    DUAL(NovaIcons.DualPane, "Dual"),
+    VAULT(NovaIcons.VaultShield, "Vault"),
+    SETTINGS(NovaIcons.SettingsSliders, "Settings")
 }
 
 @Composable
@@ -50,7 +49,7 @@ fun NovaNavigationBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -59,8 +58,8 @@ fun NovaNavigationBar(
                 .clip(NovaTheme.shapes.pill)
                 .background(NovaTheme.colors.surface)
                 .border(1.dp, NovaTheme.colors.cardBorder, NovaTheme.shapes.pill)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             NovaNavTab.entries.forEach { tab ->
@@ -71,9 +70,8 @@ fun NovaNavigationBar(
                     label = "tabTint"
                 )
 
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(48.dp)
                         .clip(CircleShape)
                         .then(
                             if (isSelected) {
@@ -86,15 +84,27 @@ fun NovaNavigationBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { onTabSelected(tab) }
-                        ),
-                    contentAlignment = Alignment.Center
+                        )
+                        .padding(horizontal = if (isSelected) 14.dp else 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = tab.icon,
                         contentDescription = tab.label,
                         tint = tint,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
+                    AnimatedVisibility(visible = isSelected) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = tab.label,
+                                style = NovaTheme.typography.captionMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }

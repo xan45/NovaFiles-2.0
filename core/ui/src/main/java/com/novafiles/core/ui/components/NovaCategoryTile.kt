@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novafiles.core.designsystem.theme.NovaTheme
 
@@ -63,13 +64,17 @@ fun NovaCategoryTile(
                 Text(
                     text = title,
                     style = NovaTheme.typography.subtitle,
-                    color = NovaTheme.colors.textPrimary
+                    color = NovaTheme.colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = sizeText,
                     style = NovaTheme.typography.caption,
-                    color = NovaTheme.colors.textSecondary
+                    color = NovaTheme.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
