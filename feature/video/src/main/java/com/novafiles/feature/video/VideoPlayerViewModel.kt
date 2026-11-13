@@ -112,6 +112,10 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun loadVideo(filePath: String) {
+        if (_uiState.value.filePath == filePath && player.playbackState != Player.STATE_IDLE) {
+            // Video is already initialized and playing, preserve position during orientation/configuration change
+            return
+        }
         val file = File(filePath)
         if (!file.exists()) return
 

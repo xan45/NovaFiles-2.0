@@ -6,7 +6,7 @@ import com.novafiles.core.model.FileSortConfig
 data class BreadcrumbItem(
     val name: String,
     val path: String
-)
+) : java.io.Serializable
 
 enum class ClipboardOp { COPY, MOVE }
 
@@ -23,7 +23,7 @@ enum class FileTypeFilter(val label: String) {
 data class ClipboardState(
     val files: List<FileItem> = emptyList(),
     val op: ClipboardOp = ClipboardOp.COPY
-)
+) : java.io.Serializable
 
 data class FilesUiState(
     val currentPath: String = "",

@@ -19,4 +19,4 @@ data class FileItem(
     val itemCount: Int? = null,
     val isSelected: Boolean = false,
     val extension: String = name.substringAfterLast('.', "")
-)
+) : java.io.Serializable

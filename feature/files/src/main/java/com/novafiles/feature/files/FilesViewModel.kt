@@ -1,6 +1,7 @@
 package com.novafiles.feature.files
 
 import android.os.Environment
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novafiles.core.common.NovaResult
@@ -25,16 +26,42 @@ import java.io.File
 
 class FilesViewModel(
     private val fileRepository: FileRepository,
+    private val savedStateHandle: SavedStateHandle? = null,
     initialPath: String? = null
 ) : ViewModel() {
+
+    companion object {
+        private const val KEY_CURRENT_PATH = "key_files_current_path"
+        private const val KEY_SEARCH_QUERY = "key_files_search_query"
+        private const val KEY_IS_GRID_VIEW = "key_files_is_grid_view"
+        private const val KEY_SORT_BY = "key_files_sort_by"
+        private const val KEY_SORT_DIR = "key_files_sort_dir"
+        private const val KEY_ACTIVE_FILTER = "key_files_active_filter"
+        private const val KEY_SELECTED_IDS = "key_files_selected_ids"
+    }
 
     private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
     private val operationsEngine = FileOperationsEngine()
     private val archiveEngine = ArchiveEngine()
+
+    private val restoredPath = savedStateHandle?.get<String>(KEY_CURRENT_PATH) ?: initialPath ?: rootPath
+    private val restoredQuery = savedStateHandle?.get<String>(KEY_SEARCH_QUERY) ?: ""
+    private val restoredGridView = savedStateHandle?.get<Boolean>(KEY_IS_GRID_VIEW) ?: false
+    private val restoredSortBy = savedStateHandle?.get<String>(KEY_SORT_BY)?.let { runCatching { SortBy.valueOf(it) }.getOrNull() } ?: SortBy.DATE
+    private val restoredSortDir = savedStateHandle?.get<String>(KEY_SORT_DIR)?.let { runCatching { SortDirection.valueOf(it) }.getOrNull() } ?: SortDirection.DESCENDING
+    private val restoredFilter = savedStateHandle?.get<String>(KEY_ACTIVE_FILTER)?.let { runCatching { FileTypeFilter.valueOf(it) }.getOrNull() } ?: FileTypeFilter.ALL
+    private val restoredSelectedIds = savedStateHandle?.get<ArrayList<String>>(KEY_SELECTED_IDS)?.toSet() ?: emptySet()
+
     private val _uiState = MutableStateFlow(
         FilesUiState(
-            currentPath = initialPath ?: rootPath,
-            breadcrumbs = buildBreadcrumbs(initialPath ?: rootPath),
+            currentPath = restoredPath,
+            breadcrumbs = buildBreadcrumbs(restoredPath),
+            searchQuery = restoredQuery,
+            isGridView = restoredGridView,
+            sortConfig = FileSortConfig(sortBy = restoredSortBy, direction = restoredSortDir),
+            activeFilter = restoredFilter,
+            selectedIds = restoredSelectedIds,
+            isSelectionMode = restoredSelectedIds.isNotEmpty(),
             bookmarks = listOf(
                 BreadcrumbItem("Device", rootPath),
                 BreadcrumbItem("Download", "$rootPath/Download"),
@@ -47,10 +74,14 @@ class FilesViewModel(
     val uiState: StateFlow<FilesUiState> = _uiState.asStateFlow()
 
     init {
-        loadDirectory(_uiState.value.currentPath)
+        loadDirectory(_uiState.value.currentPath, preserveSelection = restoredSelectedIds.isNotEmpty())
     }
 
-    fun loadDirectory(path: String) {
+    fun loadDirectory(path: String, preserveSelection: Boolean = false) {
+        savedStateHandle?.set(KEY_CURRENT_PATH, path)
+        if (!preserveSelection) {
+            savedStateHandle?.set(KEY_SELECTED_IDS, arrayListOf<String>())
+        }
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -58,8 +89,8 @@ class FilesViewModel(
                     breadcrumbs = buildBreadcrumbs(path),
                     isLoading = true,
                     errorMessage = null,
-                    selectedIds = emptySet(),
-                    isSelectionMode = false
+                    selectedIds = if (preserveSelection) it.selectedIds else emptySet(),
+                    isSelectionMode = if (preserveSelection) it.selectedIds.isNotEmpty() else false
                 )
             }
 
@@ -139,6 +170,7 @@ class FilesViewModel(
             } else {
                 updated.add(fileId)
             }
+            savedStateHandle?.set(KEY_SELECTED_IDS, ArrayList(updated))
             state.copy(
                 selectedIds = updated,
                 isSelectionMode = updated.isNotEmpty()
@@ -149,15 +181,18 @@ class FilesViewModel(
     fun selectAll() {
         _uiState.update { state ->
             if (state.isAllSelected) {
+                savedStateHandle?.set(KEY_SELECTED_IDS, arrayListOf<String>())
                 state.copy(selectedIds = emptySet(), isSelectionMode = false)
             } else {
                 val allIds = (state.folders + state.files).map { it.id }.toSet()
+                savedStateHandle?.set(KEY_SELECTED_IDS, ArrayList(allIds))
                 state.copy(selectedIds = allIds, isSelectionMode = true)
             }
         }
     }
 
     fun clearSelection() {
+        savedStateHandle?.set(KEY_SELECTED_IDS, arrayListOf<String>())
         _uiState.update { it.copy(selectedIds = emptySet(), isSelectionMode = false) }
     }
 
@@ -168,17 +203,22 @@ class FilesViewModel(
         } else {
             SortDirection.DESCENDING
         }
+        savedStateHandle?.set(KEY_SORT_BY, sortBy.name)
+        savedStateHandle?.set(KEY_SORT_DIR, newDirection.name)
         _uiState.update { it.copy(sortConfig = current.copy(sortBy = sortBy, direction = newDirection)) }
-        loadDirectory(_uiState.value.currentPath)
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun toggleLayoutMode() {
-        _uiState.update { it.copy(isGridView = !it.isGridView) }
+        val nextMode = !_uiState.value.isGridView
+        savedStateHandle?.set(KEY_IS_GRID_VIEW, nextMode)
+        _uiState.update { it.copy(isGridView = nextMode) }
     }
 
     fun setSearchQuery(query: String) {
+        savedStateHandle?.set(KEY_SEARCH_QUERY, query)
         _uiState.update { it.copy(searchQuery = query) }
-        loadDirectory(_uiState.value.currentPath)
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun getSelectedFileItems(): List<FileItem> {
@@ -294,8 +334,9 @@ class FilesViewModel(
     }
 
     fun setFileFilter(filter: FileTypeFilter) {
+        savedStateHandle?.set(KEY_ACTIVE_FILTER, filter.name)
         _uiState.update { it.copy(activeFilter = filter) }
-        loadDirectory(_uiState.value.currentPath)
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun toggleSortDirection() {
@@ -305,8 +346,9 @@ class FilesViewModel(
         } else {
             SortDirection.ASCENDING
         }
+        savedStateHandle?.set(KEY_SORT_DIR, nextDir.name)
         _uiState.update { it.copy(sortConfig = current.copy(direction = nextDir)) }
-        loadDirectory(_uiState.value.currentPath)
+        loadDirectory(_uiState.value.currentPath, preserveSelection = true)
     }
 
     fun compressSelectedToZip(archiveName: String = "Archive_${System.currentTimeMillis()}.zip") {

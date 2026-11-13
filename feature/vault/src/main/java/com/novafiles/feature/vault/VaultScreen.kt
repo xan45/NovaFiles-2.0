@@ -100,11 +100,12 @@ fun VaultScreen(
         }
     }
 
-    // Auto-lock Vault when app moves to background
+    // Auto-lock Vault when app moves to background (preserve unlock during configuration changes/rotation)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
-                if (uiState.state == VaultState.UNLOCKED || uiState.state == VaultState.DECOY_UNLOCKED) {
+                val isChangingConfig = (context as? Activity)?.isChangingConfigurations == true
+                if (!isChangingConfig && (uiState.state == VaultState.UNLOCKED || uiState.state == VaultState.DECOY_UNLOCKED)) {
                     viewModel.lockVault()
                 }
             }

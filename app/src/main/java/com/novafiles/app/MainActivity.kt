@@ -4,6 +4,12 @@ import android.os.Bundle
 import android.os.Environment
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.createSavedStateHandle
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.novafiles.core.common.FileFormatters
 import com.novafiles.core.storage.StoragePermissionHelper
 import com.novafiles.core.model.StorageStats
@@ -98,7 +104,7 @@ import com.novafiles.feature.vault.VaultScreen
 import com.novafiles.feature.video.VideoPlayerScreen
 import java.io.File
 
-sealed interface ActiveScreen {
+sealed interface ActiveScreen : java.io.Serializable {
     data class Video(val filePath: String) : ActiveScreen
     data object Music : ActiveScreen
     data class Gallery(val album: String? = null) : ActiveScreen
@@ -109,6 +115,39 @@ sealed interface ActiveScreen {
     data class PdfViewer(val filePath: String) : ActiveScreen
     data object About : ActiveScreen
 }
+
+val ActiveScreenSaver = Saver<ActiveScreen?, Any>(
+    save = { screen ->
+        when (screen) {
+            is ActiveScreen.Video -> listOf("Video", screen.filePath)
+            is ActiveScreen.Music -> listOf("Music")
+            is ActiveScreen.Gallery -> listOf("Gallery", screen.album ?: "")
+            is ActiveScreen.StorageAnalyzer -> listOf("StorageAnalyzer")
+            is ActiveScreen.StorageCleaner -> listOf("StorageCleaner")
+            is ActiveScreen.FtpServer -> listOf("FtpServer")
+            is ActiveScreen.TextEditor -> listOf("TextEditor", screen.filePath)
+            is ActiveScreen.PdfViewer -> listOf("PdfViewer", screen.filePath)
+            is ActiveScreen.About -> listOf("About")
+            null -> null
+        }
+    },
+    restore = { value ->
+        val list = value as? List<*> ?: return@Saver null
+        val type = list.getOrNull(0) as? String ?: return@Saver null
+        when (type) {
+            "Video" -> ActiveScreen.Video(list.getOrNull(1) as? String ?: "")
+            "Music" -> ActiveScreen.Music
+            "Gallery" -> ActiveScreen.Gallery((list.getOrNull(1) as? String)?.takeIf { it.isNotEmpty() })
+            "StorageAnalyzer" -> ActiveScreen.StorageAnalyzer
+            "StorageCleaner" -> ActiveScreen.StorageCleaner
+            "FtpServer" -> ActiveScreen.FtpServer
+            "TextEditor" -> ActiveScreen.TextEditor(list.getOrNull(1) as? String ?: "")
+            "PdfViewer" -> ActiveScreen.PdfViewer(list.getOrNull(1) as? String ?: "")
+            "About" -> ActiveScreen.About
+            else -> null
+        }
+    }
+)
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
 
@@ -121,6 +160,33 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         )
     }
 
+    private val filesViewModel: FilesViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val handle = createSavedStateHandle()
+                FilesViewModel(fileRepository, handle)
+            }
+        }
+    }
+
+    private val dualPaneViewModel: DualPaneViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val handle = createSavedStateHandle()
+                DualPaneViewModel(fileRepository, handle)
+            }
+        }
+    }
+
+    private val musicViewModel: MusicPlayerViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val handle = createSavedStateHandle()
+                MusicPlayerViewModel(fileRepository, handle)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -129,10 +195,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         setContent {
             val appSettings by settingsRepo.settings.collectAsState()
             val themeConfig = appSettings.themeConfig
-            var showSplash by remember { mutableStateOf(true) }
-            val filesViewModel = remember { FilesViewModel(fileRepository) }
-            val dualPaneViewModel = remember { DualPaneViewModel(fileRepository) }
-            val musicViewModel = remember { MusicPlayerViewModel(fileRepository) }
+            var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null) }
 
             NovaTheme(config = themeConfig) {
                 if (showSplash) {
@@ -163,7 +226,7 @@ fun NovaFilesMainApp(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var hasPermission by remember {
+    var hasPermission by rememberSaveable {
         mutableStateOf(StoragePermissionHelper.hasStoragePermission(context))
     }
 
@@ -225,8 +288,8 @@ fun NovaFilesMainApp(
         return
     }
 
-    var selectedTab by remember { mutableStateOf(NovaNavTab.HOME) }
-    var activeScreen by remember { mutableStateOf<ActiveScreen?>(null) }
+    var selectedTab by rememberSaveable { mutableStateOf(NovaNavTab.HOME) }
+    var activeScreen by rememberSaveable(stateSaver = ActiveScreenSaver) { mutableStateOf<ActiveScreen?>(null) }
     val filesUiState by filesViewModel.uiState.collectAsState()
     val dualPaneUiState by dualPaneViewModel.uiState.collectAsState()
     val playbackState by MusicPlaybackManager.state.collectAsState()

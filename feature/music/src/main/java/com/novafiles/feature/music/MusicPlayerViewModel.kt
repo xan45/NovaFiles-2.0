@@ -1,6 +1,7 @@
 package com.novafiles.feature.music
 
 import android.os.Environment
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novafiles.core.media.MusicPlaybackManager
@@ -35,10 +36,19 @@ data class MusicPlayerUiState(
 )
 
 class MusicPlayerViewModel(
-    private val fileRepository: FileRepository
+    private val fileRepository: FileRepository,
+    private val savedStateHandle: SavedStateHandle? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MusicPlayerUiState())
+    companion object {
+        private const val KEY_MUSIC_TAB = "key_music_current_tab"
+    }
+
+    private val restoredTab = savedStateHandle?.get<String>(KEY_MUSIC_TAB)?.let {
+        runCatching { MusicLibraryTab.valueOf(it) }.getOrNull()
+    } ?: MusicLibraryTab.TRACKS
+
+    private val _uiState = MutableStateFlow(MusicPlayerUiState(currentTab = restoredTab))
     val uiState: StateFlow<MusicPlayerUiState> = _uiState.asStateFlow()
 
     init {
@@ -78,6 +88,7 @@ class MusicPlayerViewModel(
     fun toggleFavorite() = MusicPlaybackManager.toggleFavorite()
 
     fun setLibraryTab(tab: MusicLibraryTab) {
+        savedStateHandle?.set(KEY_MUSIC_TAB, tab.name)
         _uiState.update { it.copy(currentTab = tab) }
     }
 

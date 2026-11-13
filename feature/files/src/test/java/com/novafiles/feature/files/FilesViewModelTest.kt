@@ -68,4 +68,24 @@ class FilesViewModelTest {
         viewModel.setSortBy(SortBy.SIZE)
         assertEquals(SortBy.SIZE, viewModel.uiState.value.sortConfig.sortBy)
     }
+
+    @Test
+    fun testSavedStateHandleRestoration() {
+        val repo = FakeFileRepository()
+        val handle = androidx.lifecycle.SavedStateHandle().apply {
+            set("key_files_current_path", "/storage/emulated/0/Documents")
+            set("key_files_search_query", "report")
+            set("key_files_is_grid_view", true)
+            set("key_files_sort_by", SortBy.SIZE.name)
+            set("key_files_selected_ids", arrayListOf("item_1", "item_2"))
+        }
+        val viewModel = FilesViewModel(repo, savedStateHandle = handle)
+
+        assertEquals("/storage/emulated/0/Documents", viewModel.uiState.value.currentPath)
+        assertEquals("report", viewModel.uiState.value.searchQuery)
+        assertTrue(viewModel.uiState.value.isGridView)
+        assertEquals(SortBy.SIZE, viewModel.uiState.value.sortConfig.sortBy)
+        assertTrue(viewModel.uiState.value.isSelectionMode)
+        assertEquals(2, viewModel.uiState.value.selectedIds.size)
+    }
 }

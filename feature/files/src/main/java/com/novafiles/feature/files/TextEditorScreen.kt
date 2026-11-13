@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,23 +63,25 @@ fun TextEditorScreen(
     val scope = rememberCoroutineScope()
     val file = remember(filePath) { File(filePath) }
 
-    var textContent by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-    var isSaving by remember { mutableStateOf(false) }
-    var isModified by remember { mutableStateOf(false) }
+    var textContent by rememberSaveable { mutableStateOf("") }
+    var isLoading by rememberSaveable { mutableStateOf(true) }
+    var isSaving by rememberSaveable { mutableStateOf(false) }
+    var isModified by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(filePath) {
-        withContext(Dispatchers.IO) {
-            textContent = try {
-                if (file.exists() && file.length() < 5_000_000L) { // max 5 MB text preview
-                    file.readText()
-                } else {
-                    "File too large to open or not found."
+        if (isLoading) {
+            withContext(Dispatchers.IO) {
+                textContent = try {
+                    if (file.exists() && file.length() < 5_000_000L) { // max 5 MB text preview
+                        file.readText()
+                    } else {
+                        "File too large to open or not found."
+                    }
+                } catch (e: Exception) {
+                    "Error opening file: ${e.message}"
                 }
-            } catch (e: Exception) {
-                "Error opening file: ${e.message}"
+                isLoading = false
             }
-            isLoading = false
         }
     }
 

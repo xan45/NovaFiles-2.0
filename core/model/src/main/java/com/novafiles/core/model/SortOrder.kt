@@ -21,4 +21,4 @@ data class FileSortConfig(
     val sortBy: SortBy = SortBy.DATE,
     val direction: SortDirection = SortDirection.DESCENDING,
     val foldersFirst: Boolean = true
-)
+) : java.io.Serializable

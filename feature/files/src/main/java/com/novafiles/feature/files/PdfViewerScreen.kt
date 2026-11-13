@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +71,8 @@ fun PdfViewerScreen(
 ) {
     val file = remember(filePath) { File(filePath) }
     var pageCount by remember { mutableIntStateOf(0) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var zoomScale by remember { mutableFloatStateOf(1f) }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var zoomScale by rememberSaveable { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
     val renderMutex = remember { Mutex() }
 

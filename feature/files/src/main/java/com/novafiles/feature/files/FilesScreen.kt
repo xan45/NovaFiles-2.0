@@ -60,6 +60,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,18 +126,18 @@ fun FilesScreen(
     onComputeSha256: suspend (String) -> String = { "" },
     modifier: Modifier = Modifier
 ) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showCreateFolderDialog by remember { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var fileToRename by remember { mutableStateOf<FileItem?>(null) }
-    var sortMenuExpanded by remember { mutableStateOf(false) }
-    var showSearchField by remember { mutableStateOf(false) }
-    var showMoreActionsSheet by remember { mutableStateOf(false) }
-    var showCreateZipDialog by remember { mutableStateOf(false) }
-    var showBatchRenameDialog by remember { mutableStateOf(false) }
-    var fileForDetails by remember { mutableStateOf<FileItem?>(null) }
-    var archiveToBrowse by remember { mutableStateOf<FileItem?>(null) }
-    var apkToInspect by remember { mutableStateOf<FileItem?>(null) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var showCreateFolderDialog by rememberSaveable { mutableStateOf(false) }
+    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var fileToRename by rememberSaveable { mutableStateOf<FileItem?>(null) }
+    var sortMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var showSearchField by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotBlank()) }
+    var showMoreActionsSheet by rememberSaveable { mutableStateOf(false) }
+    var showCreateZipDialog by rememberSaveable { mutableStateOf(false) }
+    var showBatchRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var fileForDetails by rememberSaveable { mutableStateOf<FileItem?>(null) }
+    var archiveToBrowse by rememberSaveable { mutableStateOf<FileItem?>(null) }
+    var apkToInspect by rememberSaveable { mutableStateOf<FileItem?>(null) }
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val uiScope = rememberCoroutineScope()
@@ -813,11 +814,11 @@ fun FilesScreen(
 
         // Batch Rename Sheet
         if (showBatchRenameDialog) {
-            var prefix by remember { mutableStateOf("") }
-            var suffix by remember { mutableStateOf("") }
-            var findText by remember { mutableStateOf("") }
-            var replaceText by remember { mutableStateOf("") }
-            var addCounter by remember { mutableStateOf(true) }
+            var prefix by rememberSaveable { mutableStateOf("") }
+            var suffix by rememberSaveable { mutableStateOf("") }
+            var findText by rememberSaveable { mutableStateOf("") }
+            var replaceText by rememberSaveable { mutableStateOf("") }
+            var addCounter by rememberSaveable { mutableStateOf(true) }
             NovaBottomSheet(onDismissRequest = { showBatchRenameDialog = false }) {
                 Column(
                     modifier = Modifier

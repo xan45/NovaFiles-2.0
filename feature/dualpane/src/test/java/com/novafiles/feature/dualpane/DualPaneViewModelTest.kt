@@ -81,4 +81,19 @@ class DualPaneViewModelTest {
             viewModel.uiState.value.paneB.currentPath
         )
     }
+
+    @Test
+    fun testSavedStateHandleRestoration() {
+        val repo = FakeDualPaneFileRepository()
+        val handle = androidx.lifecycle.SavedStateHandle().apply {
+            set("key_dual_pane_a_path", "/storage/emulated/0/Music")
+            set("key_dual_pane_b_path", "/storage/emulated/0/Pictures")
+            set("key_dual_active_pane", ActivePane.PANE_B.name)
+        }
+        val viewModel = DualPaneViewModel(repo, savedStateHandle = handle)
+
+        assertEquals(ActivePane.PANE_B, viewModel.uiState.value.activePane)
+        assertEquals("/storage/emulated/0/Music", viewModel.uiState.value.paneA.currentPath)
+        assertEquals("/storage/emulated/0/Pictures", viewModel.uiState.value.paneB.currentPath)
+    }
 }

@@ -1,6 +1,7 @@
 package com.novafiles.feature.dualpane
 
 import android.os.Environment
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novafiles.core.common.NovaResult
@@ -34,16 +35,28 @@ data class DualPaneUiState(
 
 class DualPaneViewModel(
     private val fileRepository: FileRepository,
+    private val savedStateHandle: SavedStateHandle? = null,
     private val fileOperationsEngine: FileOperationsEngine = FileOperationsEngine()
 ) : ViewModel() {
+
+    companion object {
+        private const val KEY_PANE_A_PATH = "key_dual_pane_a_path"
+        private const val KEY_PANE_B_PATH = "key_dual_pane_b_path"
+        private const val KEY_ACTIVE_PANE = "key_dual_active_pane"
+    }
 
     private val rootPath = runCatching { Environment.getExternalStorageDirectory().absolutePath }.getOrDefault("/storage/emulated/0")
     private val downloadsPath = "$rootPath/Download"
 
+    private val restoredPathA = savedStateHandle?.get<String>(KEY_PANE_A_PATH) ?: rootPath
+    private val restoredPathB = savedStateHandle?.get<String>(KEY_PANE_B_PATH) ?: downloadsPath
+    private val restoredActivePane = savedStateHandle?.get<String>(KEY_ACTIVE_PANE)?.let { runCatching { ActivePane.valueOf(it) }.getOrNull() } ?: ActivePane.PANE_A
+
     private val _uiState = MutableStateFlow(
         DualPaneUiState(
-            paneA = FilesUiState(currentPath = rootPath, breadcrumbs = buildBreadcrumbs(rootPath)),
-            paneB = FilesUiState(currentPath = downloadsPath, breadcrumbs = buildBreadcrumbs(downloadsPath))
+            paneA = FilesUiState(currentPath = restoredPathA, breadcrumbs = buildBreadcrumbs(restoredPathA)),
+            paneB = FilesUiState(currentPath = restoredPathB, breadcrumbs = buildBreadcrumbs(restoredPathB)),
+            activePane = restoredActivePane
         )
     )
     val uiState: StateFlow<DualPaneUiState> = _uiState.asStateFlow()
@@ -54,10 +67,12 @@ class DualPaneViewModel(
     }
 
     fun setActivePane(pane: ActivePane) {
+        savedStateHandle?.set(KEY_ACTIVE_PANE, pane.name)
         _uiState.update { it.copy(activePane = pane) }
     }
 
     fun loadPaneA(path: String) {
+        savedStateHandle?.set(KEY_PANE_A_PATH, path)
         _uiState.update { it.copy(paneA = it.paneA.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
         viewModelScope.launch {
             fileRepository.getFiles(path).collect { result ->
@@ -71,6 +86,7 @@ class DualPaneViewModel(
     }
 
     fun loadPaneB(path: String) {
+        savedStateHandle?.set(KEY_PANE_B_PATH, path)
         _uiState.update { it.copy(paneB = it.paneB.copy(currentPath = path, breadcrumbs = buildBreadcrumbs(path), isLoading = true)) }
         viewModelScope.launch {
             fileRepository.getFiles(path).collect { result ->
