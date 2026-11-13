@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":core:navigation"))
     implementation(project(":core:storage"))
     implementation(project(":data:files"))
+    implementation(project(":feature:files"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

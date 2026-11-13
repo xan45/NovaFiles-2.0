@@ -87,6 +87,7 @@ import androidx.compose.foundation.clickable
 import com.novafiles.core.media.MusicPlaybackManager
 import com.novafiles.data.files.FileRepositoryImpl
 import com.novafiles.feature.analyzer.StorageAnalyzerScreen
+import com.novafiles.feature.analyzer.StorageAnalyzerViewModel
 import com.novafiles.feature.cleaner.StorageCleanerScreen
 import com.novafiles.feature.dualpane.DualPaneScreen
 import com.novafiles.feature.dualpane.DualPaneViewModel
@@ -196,6 +197,18 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    private val storageAnalyzerViewModel: StorageAnalyzerViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                StorageAnalyzerViewModel(
+                    application = application,
+                    storageVolumeManager = com.novafiles.core.storage.StorageVolumeManager(applicationContext),
+                    fileRepository = fileRepository
+                )
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -214,6 +227,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         filesViewModel = filesViewModel,
                         dualPaneViewModel = dualPaneViewModel,
                         musicViewModel = musicViewModel,
+                        storageAnalyzerViewModel = storageAnalyzerViewModel,
                         themeConfig = themeConfig,
                         onThemeConfigChange = { settingsRepo.updateThemeConfig(it) },
                         fileRepository = fileRepository
@@ -229,6 +243,7 @@ fun NovaFilesMainApp(
     filesViewModel: FilesViewModel,
     dualPaneViewModel: DualPaneViewModel,
     musicViewModel: MusicPlayerViewModel,
+    storageAnalyzerViewModel: StorageAnalyzerViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     fileRepository: FileRepositoryImpl,
@@ -341,6 +356,7 @@ fun NovaFilesMainApp(
             }
             is ActiveScreen.StorageAnalyzer -> {
                 StorageAnalyzerScreen(
+                    viewModel = storageAnalyzerViewModel,
                     onNavigateBack = { navigateBack() },
                     onNavigateToCleaner = { navigateTo(ActiveScreen.StorageCleaner) },
                     onOpenFile = { fileItem ->
