@@ -35,7 +35,7 @@ import com.novafiles.core.ui.icons.NovaIcons
 enum class NovaNavTab(val icon: ImageVector, val label: String) {
     HOME(NovaIcons.Home, "Home"),
     FILES(NovaIcons.Folder, "Files"),
-    DUAL(NovaIcons.DualPane, "Dual"),
+    DUAL(NovaIcons.DualPane, "Multi-Pane"),
     VAULT(NovaIcons.VaultShield, "Vault"),
     SETTINGS(NovaIcons.SettingsSliders, "Settings")
 }

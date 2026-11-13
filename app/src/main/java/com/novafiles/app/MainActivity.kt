@@ -557,6 +557,7 @@ fun NovaFilesMainApp(
             NovaNavTab.DUAL -> {
                 DualPaneScreen(
                     uiState = dualPaneUiState,
+                    viewModel = dualPaneViewModel,
                     canNavigateUp = dualPaneViewModel.canNavigateUp(),
                     onNavigateBack = {
                         if (dualPaneViewModel.canNavigateUp()) {
@@ -574,6 +575,28 @@ fun NovaFilesMainApp(
                     onMoveAcross = { dualPaneViewModel.moveSelectedToOpposingPane() },
                     onSyncPanes = { dualPaneViewModel.syncPanes() },
                     onSwapPanes = { dualPaneViewModel.swapPanes() },
+                    onAddTab = { dualPaneViewModel.addTab() },
+                    onCloseTab = { dualPaneViewModel.closeTab(it) },
+                    onSelectTab = { dualPaneViewModel.selectTab(it) },
+                    onFolderClick = { idx, path -> dualPaneViewModel.loadDirectory(idx, path) },
+                    onToggleSelect = { idx, id -> dualPaneViewModel.toggleSelect(idx, id) },
+                    onSelectAll = { dualPaneViewModel.selectAll(it) },
+                    onClearSelection = { dualPaneViewModel.clearSelection(it) },
+                    onCopySelected = { dualPaneViewModel.copySelected(it) },
+                    onCutSelected = { dualPaneViewModel.cutSelected(it) },
+                    onPasteClipboard = { dualPaneViewModel.pasteClipboard(it) },
+                    onPasteIntoFolder = { idx, folder -> dualPaneViewModel.pasteClipboard(idx, folder) },
+                    onClearClipboard = { dualPaneViewModel.clearClipboard() },
+                    onDeleteSelected = { dualPaneViewModel.deleteSelected(it) },
+                    onDeleteSingleFile = { item, idx -> dualPaneViewModel.deleteSingleFile(item, idx) },
+                    onRenameItem = { item, name, idx -> dualPaneViewModel.renameItem(item, name, idx) },
+                    onCreateFolder = { name, idx -> dualPaneViewModel.createFolder(name, idx) },
+                    onCompressItems = { items, name, idx -> dualPaneViewModel.compressItems(items, name, idx) },
+                    onExtractArchive = { item, idx -> dualPaneViewModel.extractArchive(item, idx) },
+                    onCancelOperation = { dualPaneViewModel.cancelOperation() },
+                    onToggleLayoutView = { dualPaneViewModel.toggleLayoutView(it) },
+                    onToggleShowHidden = { dualPaneViewModel.toggleShowHidden(it) },
+                    onRefreshTab = { dualPaneViewModel.refreshTab(it) },
                     onFileClick = { fileItem ->
                         when (fileItem.fileType) {
                             FileType.AUDIO -> {
