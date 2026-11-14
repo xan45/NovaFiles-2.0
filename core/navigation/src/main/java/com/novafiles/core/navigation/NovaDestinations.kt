@@ -19,9 +19,6 @@ sealed interface NovaRoute {
     data object Cleaner : NovaRoute
 
     @Serializable
-    data object Vault : NovaRoute
-
-    @Serializable
     data object Settings : NovaRoute
 
     @Serializable

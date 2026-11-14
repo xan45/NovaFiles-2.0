@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
@@ -52,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,10 +65,12 @@ import com.novafiles.core.designsystem.theme.NovaTheme
 import com.novafiles.core.model.AccentColor
 import com.novafiles.core.model.ThemeConfig
 import com.novafiles.core.model.ThemeMode
+import com.novafiles.core.security.PinSecurityManager
 import com.novafiles.core.ui.components.NovaBottomSheet
 import com.novafiles.core.ui.components.NovaButton
 import com.novafiles.core.ui.components.NovaButtonVariant
 import com.novafiles.core.ui.components.NovaCard
+import com.novafiles.core.ui.components.PinSetupDialog
 
 @Composable
 fun SettingsScreen(
@@ -81,6 +83,10 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
+    val context = LocalContext.current
+    val pinSecurityManager = remember { PinSecurityManager(context) }
+    var hasPinState by remember { mutableStateOf(pinSecurityManager.hasPin) }
+    var showSetPinDialog by remember { mutableStateOf(false) }
     var showLicensesSheet by remember { mutableStateOf(false) }
 
     Box(
@@ -289,20 +295,49 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             SettingsToggleRow(
-                                title = "Biometric Authentication",
-                                subtitle = "Use fingerprint or face to unlock secure features",
-                                icon = Icons.Rounded.Fingerprint,
-                                checked = settings.isBiometricEnabled,
-                                onCheckedChange = { viewModel.setBiometric(it) }
-                            )
-
-                            SettingsToggleRow(
                                 title = "App Lock on Launch",
-                                subtitle = "Require PIN or biometrics upon opening NovaFiles",
+                                subtitle = "Require PIN upon opening NovaFiles",
                                 icon = Icons.Rounded.Lock,
                                 checked = settings.isAppLockEnabled,
-                                onCheckedChange = { viewModel.setAppLock(it) }
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        if (!pinSecurityManager.hasPin) {
+                                            showSetPinDialog = true
+                                        } else {
+                                            viewModel.setAppLock(true)
+                                        }
+                                    } else {
+                                        viewModel.setAppLock(false)
+                                    }
+                                }
                             )
+
+                            if (hasPinState) {
+                                SettingsActionRow(
+                                    title = "Change App Lock PIN",
+                                    subtitle = "Update your existing 4-digit PIN",
+                                    icon = Icons.Rounded.Security,
+                                    onClick = { showSetPinDialog = true }
+                                )
+
+                                SettingsActionRow(
+                                    title = "Remove PIN",
+                                    subtitle = "Delete stored PIN and disable App Lock",
+                                    icon = Icons.Rounded.Delete,
+                                    onClick = {
+                                        pinSecurityManager.removePin()
+                                        hasPinState = false
+                                        viewModel.setAppLock(false)
+                                    }
+                                )
+                            } else {
+                                SettingsActionRow(
+                                    title = "Set App Lock PIN",
+                                    subtitle = "Configure a secure 4-digit PIN",
+                                    icon = Icons.Rounded.Security,
+                                    onClick = { showSetPinDialog = true }
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
@@ -344,6 +379,19 @@ fun SettingsScreen(
         // Open Source Licenses Sheet
         if (showLicensesSheet) {
             LicensesSheet(onDismiss = { showLicensesSheet = false })
+        }
+
+        if (showSetPinDialog) {
+            PinSetupDialog(
+                onDismissRequest = { showSetPinDialog = false },
+                onPinConfirmed = { pin ->
+                    pinSecurityManager.setPin(pin)
+                    hasPinState = true
+                    viewModel.setAppLock(true)
+                    showSetPinDialog = false
+                },
+                title = if (hasPinState) "Change App Lock PIN" else "Set App Lock PIN"
+            )
         }
     }
 }

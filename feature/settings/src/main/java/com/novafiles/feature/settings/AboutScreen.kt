@@ -196,12 +196,6 @@ fun AboutScreen(
                 role = "Archive Extraction",
                 icon = Icons.Rounded.FolderZip,
                 license = "Apache 2.0"
-            ),
-            OpenSourceLibrary(
-                name = "Biometric",
-                role = "Hardware Security",
-                icon = Icons.Rounded.Fingerprint,
-                license = "Apache 2.0"
             )
         )
     }

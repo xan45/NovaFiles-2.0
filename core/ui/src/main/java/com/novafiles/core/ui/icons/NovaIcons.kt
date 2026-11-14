@@ -79,27 +79,6 @@ object NovaIcons {
         }.build()
     }
 
-    val VaultShield: ImageVector by lazy {
-        ImageVector.Builder("NovaVaultShield", 24.dp, 24.dp, 24f, 24f).apply {
-            path(
-                stroke = SolidColor(Color.White),
-                strokeLineWidth = 2f,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
-            ) {
-                moveTo(12f, 2.5f)
-                lineTo(19.5f, 5.5f)
-                lineTo(19.5f, 11.5f)
-                quadTo(19.5f, 18f, 12f, 21.5f)
-                quadTo(4.5f, 18f, 4.5f, 11.5f)
-                lineTo(4.5f, 5.5f)
-                close()
-                moveTo(12f, 10.5f)
-                lineTo(12f, 14.5f)
-            }
-        }.build()
-    }
-
     val SettingsSliders: ImageVector by lazy {
         ImageVector.Builder("NovaSettings", 24.dp, 24.dp, 24f, 24f).apply {
             path(

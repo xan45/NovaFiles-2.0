@@ -2,9 +2,9 @@ package com.novafiles.core.security
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Base64
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Base64
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
@@ -15,9 +15,11 @@ sealed interface PinVerificationResult {
     data class LockedOut(val secondsRemaining: Long) : PinVerificationResult
 }
 
-class PinSecurityManager(context: Context) {
-
-    private val prefs: SharedPreferences = context.getSharedPreferences("nova_security_prefs", Context.MODE_PRIVATE)
+class PinSecurityManager(
+    context: Context? = null,
+    private val prefs: SharedPreferences = context?.getSharedPreferences("nova_security_prefs", Context.MODE_PRIVATE)
+        ?: error("Either context or SharedPreferences must be provided")
+) {
 
     companion object {
         const val KEY_PBKDF2_HASH = "vault_pbkdf2_hash"
@@ -27,7 +29,6 @@ class PinSecurityManager(context: Context) {
         const val KEY_FAILED_ATTEMPTS = "vault_failed_attempts"
         const val KEY_LOCKOUT_UNTIL = "vault_lockout_until"
         const val KEY_LAST_CHECK_TIME = "vault_last_check_time"
-        const val KEY_BIOMETRIC_ENABLED = "vault_biometric_enabled"
 
         private const val ITERATIONS = 120_000
         private const val KEY_LENGTH = 256
@@ -43,10 +44,6 @@ class PinSecurityManager(context: Context) {
 
     val hasDecoyPin: Boolean
         get() = prefs.getString(KEY_DECOY_HASH, null) != null
-
-    var isBiometricEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
 
     fun getRemainingLockoutSeconds(): Long {
         val lockoutUntil = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
@@ -77,8 +74,8 @@ class PinSecurityManager(context: Context) {
         secureRandom.nextBytes(salt)
 
         val hash = hashPbkdf2(pin, salt, ITERATIONS, KEY_LENGTH)
-        val saltBase64 = Base64.encodeToString(salt, Base64.NO_WRAP)
-        val hashBase64 = Base64.encodeToString(hash, Base64.NO_WRAP)
+        val saltBase64 = Base64.getEncoder().encodeToString(salt)
+        val hashBase64 = Base64.getEncoder().encodeToString(hash)
 
         prefs.edit()
             .putString(KEY_PBKDF2_HASH, hashBase64)
@@ -96,8 +93,8 @@ class PinSecurityManager(context: Context) {
         secureRandom.nextBytes(salt)
 
         val hash = hashPbkdf2(pin, salt, ITERATIONS, KEY_LENGTH)
-        val saltBase64 = Base64.encodeToString(salt, Base64.NO_WRAP)
-        val hashBase64 = Base64.encodeToString(hash, Base64.NO_WRAP)
+        val saltBase64 = Base64.getEncoder().encodeToString(salt)
+        val hashBase64 = Base64.getEncoder().encodeToString(hash)
 
         prefs.edit()
             .putString(KEY_DECOY_HASH, hashBase64)
@@ -122,8 +119,8 @@ class PinSecurityManager(context: Context) {
             return PinVerificationResult.Invalid(MAX_ATTEMPTS)
         }
 
-        val salt = Base64.decode(storedSaltBase64, Base64.NO_WRAP)
-        val expectedHash = Base64.decode(storedHashBase64, Base64.NO_WRAP)
+        val salt = Base64.getDecoder().decode(storedSaltBase64)
+        val expectedHash = Base64.getDecoder().decode(storedHashBase64)
         val computedHash = hashPbkdf2(pin, salt, ITERATIONS, KEY_LENGTH)
 
         // 1. Check Primary PIN
@@ -134,8 +131,8 @@ class PinSecurityManager(context: Context) {
         val storedDecoyHashBase64 = prefs.getString(KEY_DECOY_HASH, null)
         val storedDecoySaltBase64 = prefs.getString(KEY_DECOY_SALT, null)
         if (storedDecoyHashBase64 != null && storedDecoySaltBase64 != null) {
-            val decoySalt = Base64.decode(storedDecoySaltBase64, Base64.NO_WRAP)
-            val expectedDecoyHash = Base64.decode(storedDecoyHashBase64, Base64.NO_WRAP)
+            val decoySalt = Base64.getDecoder().decode(storedDecoySaltBase64)
+            val expectedDecoyHash = Base64.getDecoder().decode(storedDecoyHashBase64)
             val computedDecoyHash = hashPbkdf2(pin, decoySalt, ITERATIONS, KEY_LENGTH)
             isDecoyMatch = MessageDigest.isEqual(expectedDecoyHash, computedDecoyHash)
         }
@@ -183,6 +180,12 @@ class PinSecurityManager(context: Context) {
         }
     }
 
+    fun setPin(pin: String) = setPin(pin.toCharArray())
+
+    fun setDecoyPin(pin: String) = setDecoyPin(pin.toCharArray())
+
+    fun verifyPin(pin: String): PinVerificationResult = verifyPin(pin.toCharArray())
+
     fun removePin() {
         prefs.edit()
             .remove(KEY_PBKDF2_HASH)
@@ -191,7 +194,6 @@ class PinSecurityManager(context: Context) {
             .remove(KEY_DECOY_SALT)
             .remove(KEY_FAILED_ATTEMPTS)
             .remove(KEY_LOCKOUT_UNTIL)
-            .remove(KEY_BIOMETRIC_ENABLED)
             .apply()
     }
 

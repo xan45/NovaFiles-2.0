@@ -56,13 +56,7 @@
 -dontwarn coil.**
 
 # ----------------------------------------------------------------------------
-# 6. AndroidX Biometric & Security
-# ----------------------------------------------------------------------------
--keep class androidx.biometric.** { *; }
--dontwarn androidx.biometric.**
-
-# ----------------------------------------------------------------------------
-# 7. NovaFiles Core Domain, Models & Security
+# 6. NovaFiles Core Domain, Models & Security
 # ----------------------------------------------------------------------------
 -keep class com.novafiles.core.model.** { *; }
 -keep class com.novafiles.core.security.** { *; }

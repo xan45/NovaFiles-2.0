@@ -48,6 +48,9 @@ object MusicPlaybackManager {
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
+    }
+
+    private fun ensureService(context: Context) {
         if (player == null) {
             try {
                 val serviceIntent = Intent(context, NovaMusicPlaybackService::class.java)
@@ -94,8 +97,9 @@ object MusicPlaybackManager {
     }
 
     fun playQueue(files: List<File>, startIndex: Int = 0) {
-        val p = player ?: return
         val context = appContext ?: return
+        ensureService(context)
+        val p = player ?: return
 
         _state.update { it.copy(queue = files, currentIndex = startIndex) }
 

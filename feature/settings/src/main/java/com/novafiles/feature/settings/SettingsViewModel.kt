@@ -50,10 +50,6 @@ class SettingsViewModel @JvmOverloads constructor(
         repository.updateAppLock(enabled)
     }
 
-    fun setBiometric(enabled: Boolean) {
-        repository.updateBiometric(enabled)
-    }
-
     fun setConfirmFileDeletion(confirm: Boolean) {
         repository.updateConfirmFileDeletion(confirm)
     }

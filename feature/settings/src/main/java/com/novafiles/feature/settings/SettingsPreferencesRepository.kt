@@ -18,7 +18,6 @@ data class AppSettings(
     val defaultSortBy: SortBy = SortBy.NAME,
     val sortDirection: SortDirection = SortDirection.ASCENDING,
     val isAppLockEnabled: Boolean = false,
-    val isBiometricEnabled: Boolean = false,
     val confirmFileDeletion: Boolean = true
 )
 
@@ -42,7 +41,6 @@ class SettingsPreferencesRepository(context: Context) {
         val sortDir = runCatching { SortDirection.valueOf(sortDirName) }.getOrDefault(SortDirection.ASCENDING)
 
         val appLock = prefs.getBoolean("is_app_lock_enabled", false)
-        val biometric = prefs.getBoolean("is_biometric_enabled", false)
         val confirmDelete = prefs.getBoolean("confirm_file_deletion", true)
 
         return AppSettings(
@@ -51,7 +49,6 @@ class SettingsPreferencesRepository(context: Context) {
             defaultSortBy = sortBy,
             sortDirection = sortDir,
             isAppLockEnabled = appLock,
-            isBiometricEnabled = biometric,
             confirmFileDeletion = confirmDelete
         )
     }
@@ -80,11 +77,6 @@ class SettingsPreferencesRepository(context: Context) {
     fun updateAppLock(enabled: Boolean) {
         prefs.edit().putBoolean("is_app_lock_enabled", enabled).apply()
         _settings.update { it.copy(isAppLockEnabled = enabled) }
-    }
-
-    fun updateBiometric(enabled: Boolean) {
-        prefs.edit().putBoolean("is_biometric_enabled", enabled).apply()
-        _settings.update { it.copy(isBiometricEnabled = enabled) }
     }
 
     fun updateConfirmFileDeletion(confirm: Boolean) {

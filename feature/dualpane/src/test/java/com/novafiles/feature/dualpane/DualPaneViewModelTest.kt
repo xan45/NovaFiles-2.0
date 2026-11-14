@@ -7,12 +7,19 @@ import com.novafiles.core.model.FileType
 import com.novafiles.core.model.StorageStats
 import com.novafiles.data.files.FileRepository
 import com.novafiles.feature.files.ClipboardOp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class FakeDualPaneFileRepository : FileRepository {
@@ -35,6 +42,20 @@ class FakeDualPaneFileRepository : FileRepository {
 }
 
 class DualPaneViewModelTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun testInitialDualPaneState() {
@@ -108,10 +129,12 @@ class DualPaneViewModelTest {
         assertEquals("/storage/emulated/0/DCIM", viewModel.uiState.value.tabs[1].currentPath)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testIndependentSelectionAndClipboard() {
         val repo = FakeDualPaneFileRepository()
         val viewModel = DualPaneViewModel(repo)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // Select item in tab 0
         viewModel.toggleSelect(0, "1")

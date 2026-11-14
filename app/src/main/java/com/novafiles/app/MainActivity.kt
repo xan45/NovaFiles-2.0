@@ -2,6 +2,7 @@ package com.novafiles.app
 
 import android.os.Bundle
 import android.os.Environment
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -101,9 +102,9 @@ import com.novafiles.feature.gallery.GalleryViewModel
 import com.novafiles.feature.music.MusicPlayerScreen
 import com.novafiles.feature.music.MusicPlayerViewModel
 import com.novafiles.feature.music.NovaMiniMusicPlayer
+import com.novafiles.core.security.PinSecurityManager
 import com.novafiles.feature.settings.AboutScreen
 import com.novafiles.feature.settings.SettingsScreen
-import com.novafiles.feature.vault.VaultScreen
 import com.novafiles.feature.video.VideoLibraryScreen
 import com.novafiles.feature.video.VideoLibraryViewModel
 import com.novafiles.feature.video.VideoPlayerScreen
@@ -163,7 +164,7 @@ val ActiveScreenStackSaver = Saver<List<ActiveScreen>, List<List<String>>>(
     restore = { savedList -> savedList.mapNotNull { deserializeActiveScreen(it) } }
 )
 
-class MainActivity : androidx.fragment.app.FragmentActivity() {
+class MainActivity : ComponentActivity() {
 
     private val settingsRepo by lazy { SettingsPreferencesRepository(applicationContext) }
 
@@ -246,10 +247,19 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             val appSettings by settingsRepo.settings.collectAsState()
             val themeConfig = appSettings.themeConfig
             var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            val pinSecurityManager = remember { PinSecurityManager(applicationContext) }
+            var isAppUnlocked by rememberSaveable {
+                mutableStateOf(!appSettings.isAppLockEnabled || !pinSecurityManager.hasPin)
+            }
 
             NovaTheme(config = themeConfig) {
                 if (showSplash) {
                     NovaSplashScreen(onSplashFinished = { showSplash = false })
+                } else if (!isAppUnlocked && appSettings.isAppLockEnabled && pinSecurityManager.hasPin) {
+                    PinLockScreen(
+                        pinSecurityManager = pinSecurityManager,
+                        onUnlockSuccess = { isAppUnlocked = true }
+                    )
                 } else {
                     NovaFilesMainApp(
                         filesViewModel = filesViewModel,
@@ -679,12 +689,6 @@ fun NovaFilesMainApp(
                             else -> navigateTo(ActiveScreen.TextEditor(fileItem.path))
                         }
                     },
-                    modifier = contentModifier
-                )
-            }
-            NovaNavTab.VAULT -> {
-                VaultScreen(
-                    onNavigateBack = { selectedTab = NovaNavTab.HOME },
                     modifier = contentModifier
                 )
             }
