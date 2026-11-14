@@ -3,26 +3,39 @@ package com.novafiles.core.designsystem.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.novafiles.core.model.AccentColor
+import com.novafiles.core.model.ThemeConfig
 import com.novafiles.core.model.ThemeMode
 
-// Base Dark Navy Tokens (Primary Reference: media_1794034804827_b8bf4514.jpg)
+// Base Black (True AMOLED #000000) Tokens
+val BlackBackground = Color(0xFF000000)
+val BlackSurface = Color(0xFF0A0A0A)
+val BlackElevated = Color(0xFF141414)
+val BlackCardBorder = Color(0xFF222222)
+
+// Base White (#FFFFFF Light) Tokens
+val WhiteBackground = Color(0xFFFFFFFF)
+val WhiteSurface = Color(0xFFF8FAFC)
+val WhiteElevated = Color(0xFFF1F5F9)
+val WhiteCardBorder = Color(0xFFE2E8F0)
+
+// Aliases for compatibility
+val AmoledBackground = BlackBackground
+val AmoledSurface = BlackSurface
+val AmoledElevated = BlackElevated
+val AmoledCardBorder = BlackCardBorder
+
+val LightBackground = WhiteBackground
+val LightSurface = WhiteSurface
+val LightElevated = WhiteElevated
+val LightCardBorder = WhiteCardBorder
+
+// Dark Navy Tokens (Fallback / Preserved)
 val DarkBackground = Color(0xFF0B1226)
 val DarkSurface = Color(0xFF111B3A)
 val DarkElevated = Color(0xFF1A2547)
 val DarkCardBorder = Color(0xFF2A3A6A)
-
-// Base AMOLED Tokens
-val AmoledBackground = Color(0xFF000000)
-val AmoledSurface = Color(0xFF0A0A0A)
-val AmoledElevated = Color(0xFF141414)
-val AmoledCardBorder = Color(0xFF222222)
-
-// Base Light Tokens
-val LightBackground = Color(0xFFF8FAFC)
-val LightSurface = Color(0xFFFFFFFF)
-val LightElevated = Color(0xFFF1F5F9)
-val LightCardBorder = Color(0xFFE2E8F0)
 
 // Category & Semantic Colors (Reference Palette)
 val ColorIndigoPrimary = Color(0xFF5B6EF5)
@@ -68,8 +81,8 @@ data class NovaColors(
     val warning: Color = ColorWarmOrange
 )
 
-fun createNovaColors(mode: ThemeMode, accent: AccentColor): NovaColors {
-    val (primary, secondary) = when (accent) {
+fun createNovaColors(config: ThemeConfig): NovaColors {
+    val (primary, secondary) = when (config.accent) {
         AccentColor.INDIGO -> ColorIndigoPrimary to ColorVioletSecondary
         AccentColor.EMERALD -> Color(0xFF10B981) to Color(0xFF34D399)
         AccentColor.CORAL -> ColorCoralRed to Color(0xFFFB7185)
@@ -78,36 +91,12 @@ fun createNovaColors(mode: ThemeMode, accent: AccentColor): NovaColors {
         AccentColor.PINK -> ColorElectricPink to Color(0xFFEC4899)
     }
 
-    return when (mode) {
-        ThemeMode.DARK -> NovaColors(
-            background = DarkBackground,
-            surface = DarkSurface,
-            surfaceElevated = DarkElevated,
-            cardBorder = DarkCardBorder,
-            primary = primary,
-            secondary = secondary,
-            textPrimary = TextPrimaryDark,
-            textSecondary = TextSecondaryDark,
-            textTertiary = TextTertiaryDark,
-            isDark = true
-        )
-        ThemeMode.AMOLED -> NovaColors(
-            background = AmoledBackground,
-            surface = AmoledSurface,
-            surfaceElevated = AmoledElevated,
-            cardBorder = AmoledCardBorder,
-            primary = primary,
-            secondary = secondary,
-            textPrimary = TextPrimaryDark,
-            textSecondary = TextSecondaryDark,
-            textTertiary = TextTertiaryDark,
-            isDark = true
-        )
-        ThemeMode.LIGHT -> NovaColors(
-            background = LightBackground,
-            surface = LightSurface,
-            surfaceElevated = LightElevated,
-            cardBorder = LightCardBorder,
+    return when (config.mode) {
+        ThemeMode.WHITE -> NovaColors(
+            background = WhiteBackground,
+            surface = WhiteSurface,
+            surfaceElevated = WhiteElevated,
+            cardBorder = WhiteCardBorder,
             primary = primary,
             secondary = secondary,
             textPrimary = TextPrimaryLight,
@@ -115,9 +104,49 @@ fun createNovaColors(mode: ThemeMode, accent: AccentColor): NovaColors {
             textTertiary = TextTertiaryLight,
             isDark = false
         )
+        ThemeMode.BLACK -> NovaColors(
+            background = BlackBackground,
+            surface = BlackSurface,
+            surfaceElevated = BlackElevated,
+            cardBorder = BlackCardBorder,
+            primary = primary,
+            secondary = secondary,
+            textPrimary = TextPrimaryDark,
+            textSecondary = TextSecondaryDark,
+            textTertiary = TextTertiaryDark,
+            isDark = true
+        )
+        ThemeMode.CUSTOM -> {
+            val bg = Color(config.customBackground)
+            val surface = Color(config.customSurface)
+            val card = Color(config.customCard)
+            val lum = bg.luminance()
+            val isDark = lum <= 0.5f
+            val cardBorder = if (isDark) card.copy(alpha = 0.6f) else Color(0xFFCBD5E1)
+            val textPrimary = if (isDark) TextPrimaryDark else TextPrimaryLight
+            val textSecondary = if (isDark) TextSecondaryDark else TextSecondaryLight
+            val textTertiary = if (isDark) TextTertiaryDark else TextTertiaryLight
+
+            NovaColors(
+                background = bg,
+                surface = surface,
+                surfaceElevated = card,
+                cardBorder = cardBorder,
+                primary = primary,
+                secondary = secondary,
+                textPrimary = textPrimary,
+                textSecondary = textSecondary,
+                textTertiary = textTertiary,
+                isDark = isDark
+            )
+        }
     }
 }
 
+fun createNovaColors(mode: ThemeMode, accent: AccentColor): NovaColors {
+    return createNovaColors(ThemeConfig(mode = mode, accent = accent))
+}
+
 val LocalNovaColors = staticCompositionLocalOf {
-    createNovaColors(ThemeMode.DARK, AccentColor.INDIGO)
+    createNovaColors(ThemeConfig(mode = ThemeMode.BLACK, accent = AccentColor.INDIGO))
 }

@@ -35,10 +35,10 @@
             android:label="NovaFiles Music Compact">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.novafiles.app.ACTION_MUSIC_WIDGET_UPDATE" />
-                <action android:name="com.novafiles.app.widget.ACTION_PLAY_PAUSE" />
-                <action android:name="com.novafiles.app.widget.ACTION_NEXT" />
-                <action android:name="com.novafiles.app.widget.ACTION_PREVIOUS" />
+                <action android:name="com.xan.novafiles.ACTION_MUSIC_WIDGET_UPDATE" />
+                <action android:name="com.xan.novafiles.widget.ACTION_PLAY_PAUSE" />
+                <action android:name="com.xan.novafiles.widget.ACTION_NEXT" />
+                <action android:name="com.xan.novafiles.widget.ACTION_PREVIOUS" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -51,10 +51,10 @@
             android:label="NovaFiles Music Expanded">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.novafiles.app.ACTION_MUSIC_WIDGET_UPDATE" />
-                <action android:name="com.novafiles.app.widget.ACTION_PLAY_PAUSE" />
-                <action android:name="com.novafiles.app.widget.ACTION_NEXT" />
-                <action android:name="com.novafiles.app.widget.ACTION_PREVIOUS" />
+                <action android:name="com.xan.novafiles.ACTION_MUSIC_WIDGET_UPDATE" />
+                <action android:name="com.xan.novafiles.widget.ACTION_PLAY_PAUSE" />
+                <action android:name="com.xan.novafiles.widget.ACTION_NEXT" />
+                <action android:name="com.xan.novafiles.widget.ACTION_PREVIOUS" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

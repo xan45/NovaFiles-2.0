@@ -5,6 +5,7 @@
 
 package com.novafiles.feature.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,9 +35,12 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -139,7 +143,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Medium
                             )
 
-                            // Theme Mode Pill Selector
+                            // Theme Mode 3-Pill Selector (White, Black, Custom)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -148,9 +152,9 @@ fun SettingsScreen(
                                     val isSelected = settings.themeConfig.mode == mode
                                     NovaButton(
                                         text = when (mode) {
-                                            ThemeMode.DARK -> "Dark Navy"
-                                            ThemeMode.AMOLED -> "AMOLED"
-                                            ThemeMode.LIGHT -> "Light"
+                                            ThemeMode.WHITE -> "White"
+                                            ThemeMode.BLACK -> "Black"
+                                            ThemeMode.CUSTOM -> "Custom"
                                         },
                                         onClick = {
                                             val newConfig = settings.themeConfig.copy(mode = mode)
@@ -164,10 +168,83 @@ fun SettingsScreen(
                                 }
                             }
 
+                            // Live Preview Card
+                            ThemePreviewCard(themeConfig = settings.themeConfig)
+
+                            // Custom Theme Controls (Expanded only when CUSTOM is active)
+                            if (settings.themeConfig.mode == ThemeMode.CUSTOM) {
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Text(
+                                        text = "Custom Theme Palette",
+                                        style = NovaTheme.typography.body,
+                                        color = NovaTheme.colors.textPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+
+                                    CustomColorField(
+                                        label = "Main Background",
+                                        currentColor = settings.themeConfig.customBackground,
+                                        presets = listOf(
+                                            0xFF000000L, 0xFF0B1226L, 0xFF121212L, 0xFF0F172AL,
+                                            0xFF18181BL, 0xFF1A102FL, 0xFFF8FAFCL, 0xFFFFFFFFL
+                                        ),
+                                        onColorChanged = { newColor ->
+                                            val newConfig = settings.themeConfig.copy(customBackground = newColor)
+                                            viewModel.setThemeConfig(newConfig)
+                                            onThemeConfigChange(newConfig)
+                                        }
+                                    )
+
+                                    CustomColorField(
+                                        label = "Secondary Surface",
+                                        currentColor = settings.themeConfig.customSurface,
+                                        presets = listOf(
+                                            0xFF0A0A0AL, 0xFF111B3AL, 0xFF1E1E1EL, 0xFF1E293BL,
+                                            0xFF27272AL, 0xFF261947L, 0xFFF1F5F9L
+                                        ),
+                                        onColorChanged = { newColor ->
+                                            val newConfig = settings.themeConfig.copy(customSurface = newColor)
+                                            viewModel.setThemeConfig(newConfig)
+                                            onThemeConfigChange(newConfig)
+                                        }
+                                    )
+
+                                    CustomColorField(
+                                        label = "Card / Container",
+                                        currentColor = settings.themeConfig.customCard,
+                                        presets = listOf(
+                                            0xFF141414L, 0xFF1A2547L, 0xFF2A2A2AL, 0xFF334155L,
+                                            0xFF3F3F46L, 0xFF352562L, 0xFFE2E8F0L
+                                        ),
+                                        onColorChanged = { newColor ->
+                                            val newConfig = settings.themeConfig.copy(customCard = newColor)
+                                            viewModel.setThemeConfig(newConfig)
+                                            onThemeConfigChange(newConfig)
+                                        }
+                                    )
+
+                                    NovaButton(
+                                        text = "Reset to Default Custom Colors",
+                                        icon = Icons.Rounded.Refresh,
+                                        onClick = {
+                                            viewModel.resetCustomColors()
+                                            val resetConfig = settings.themeConfig.copy(
+                                                customBackground = 0xFF121212L,
+                                                customSurface = 0xFF1E1E1EL,
+                                                customCard = 0xFF2A2A2AL
+                                            )
+                                            onThemeConfigChange(resetConfig)
+                                        },
+                                        variant = NovaButtonVariant.SECONDARY,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = "Accent Color (6 Options)",
+                                text = "Accent Color (6 Curated Options)",
                                 style = NovaTheme.typography.body,
                                 color = NovaTheme.colors.textSecondary,
                                 fontWeight = FontWeight.Medium
@@ -233,7 +310,7 @@ fun SettingsScreen(
                             // Confirm Deletion Switch
                             SettingsToggleRow(
                                 title = "Confirm Deletions",
-                                subtitle = "Prompt before permanently deleting files",
+                                subtitle = "Ask for confirmation before permanently deleting files",
                                 icon = Icons.Rounded.Delete,
                                 checked = settings.confirmFileDeletion,
                                 onCheckedChange = { viewModel.setConfirmFileDeletion(it) }
@@ -358,7 +435,7 @@ fun SettingsScreen(
                         ) {
                             SettingsActionRow(
                                 title = "About NovaFiles",
-                                subtitle = "Advanced Storage & File Management Suite • v1.0.0",
+                                subtitle = "Advanced Storage & File Management Suite • v1.0.0-alpha1",
                                 icon = Icons.Rounded.Info,
                                 onClick = onNavigateToAbout
                             )
@@ -569,5 +646,207 @@ private fun LicensesSheet(onDismiss: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun ThemePreviewCard(
+    themeConfig: ThemeConfig,
+    modifier: Modifier = Modifier
+) {
+    NovaCard(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = NovaTheme.colors.background,
+        borderColor = NovaTheme.colors.cardBorder
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(NovaTheme.colors.primary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Live Theme Preview",
+                        style = NovaTheme.typography.subtitle,
+                        color = NovaTheme.colors.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+                Text(
+                    text = when (themeConfig.mode) {
+                        ThemeMode.WHITE -> "White"
+                        ThemeMode.BLACK -> "Black AMOLED"
+                        ThemeMode.CUSTOM -> "Custom"
+                    },
+                    style = NovaTheme.typography.caption,
+                    color = NovaTheme.colors.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(NovaTheme.colors.surfaceElevated)
+                    .border(1.dp, NovaTheme.colors.cardBorder, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "NovaFiles 2.0",
+                            style = NovaTheme.typography.body,
+                            color = NovaTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Theme & contrast preview",
+                            style = NovaTheme.typography.caption,
+                            color = NovaTheme.colors.textSecondary
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(NovaTheme.colors.primary)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = themeConfig.accent.name,
+                            style = NovaTheme.typography.caption,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomColorField(
+    label: String,
+    currentColor: Long,
+    presets: List<Long>,
+    onColorChanged: (Long) -> Unit
+) {
+    var hexText by remember(currentColor) {
+        mutableStateOf(String.format(java.util.Locale.US, "%06X", currentColor and 0x00FFFFFFL))
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = NovaTheme.typography.body,
+                color = NovaTheme.colors.textPrimary,
+                fontWeight = FontWeight.Medium
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(currentColor))
+                        .border(1.dp, NovaTheme.colors.cardBorder, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "#$hexText",
+                    style = NovaTheme.typography.caption,
+                    color = NovaTheme.colors.textSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Preset color swatches
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            presets.forEach { preset ->
+                val isSelected = (currentColor and 0x00FFFFFFL) == (preset and 0x00FFFFFFL)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(preset))
+                        .border(
+                            width = if (isSelected) 2.5.dp else 1.dp,
+                            color = if (isSelected) NovaTheme.colors.primary else Color.Gray.copy(alpha = 0.4f),
+                            shape = CircleShape
+                        )
+                        .clickable { onColorChanged(preset) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(NovaTheme.colors.primary)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Hex Code input field
+        OutlinedTextField(
+            value = hexText,
+            onValueChange = { input ->
+                val filtered = input.take(6).uppercase()
+                hexText = filtered
+                if (filtered.length == 6) {
+                    val parsed = filtered.toLongOrNull(16)
+                    if (parsed != null) {
+                        onColorChanged(0xFF000000L or parsed)
+                    }
+                }
+            },
+            prefix = { Text("#", color = NovaTheme.colors.textSecondary) },
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = NovaTheme.colors.textPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = NovaTheme.colors.primary,
+                unfocusedBorderColor = NovaTheme.colors.cardBorder,
+                focusedContainerColor = NovaTheme.colors.surface,
+                unfocusedContainerColor = NovaTheme.colors.surface
+            ),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            placeholder = { Text("HEX code", color = NovaTheme.colors.textSecondary, fontSize = 13.sp) }
+        )
     }
 }

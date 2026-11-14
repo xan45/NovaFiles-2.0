@@ -14,7 +14,7 @@ import com.novafiles.core.model.ThemeMode
 @Composable
 fun NovaTheme(
     config: ThemeConfig = ThemeConfig(
-        mode = if (isSystemInDarkTheme()) ThemeMode.DARK else ThemeMode.DARK, // Dark by default per design direction
+        mode = if (isSystemInDarkTheme()) ThemeMode.BLACK else ThemeMode.BLACK, // Black AMOLED by default
         accent = AccentColor.INDIGO
     ),
     typography: NovaTypography = NovaTypography(),
@@ -22,7 +22,7 @@ fun NovaTheme(
     elevation: NovaElevation = NovaElevation(),
     content: @Composable () -> Unit
 ) {
-    val novaColors = createNovaColors(config.mode, config.accent)
+    val novaColors = createNovaColors(config)
 
     // Bridge with MaterialTheme so system components interoperate cleanly
     val materialColorScheme = if (novaColors.isDark) {

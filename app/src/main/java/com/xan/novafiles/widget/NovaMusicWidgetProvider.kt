@@ -1,4 +1,4 @@
-package com.novafiles.app.widget
+package com.xan.novafiles.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -8,8 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.widget.RemoteViews
-import com.novafiles.app.MainActivity
-import com.novafiles.app.R
+import com.xan.novafiles.MainActivity
+import com.xan.novafiles.R
 import com.novafiles.core.media.MusicPlaybackManager
 import com.novafiles.core.media.MusicState
 import java.io.File
@@ -18,9 +18,9 @@ import java.util.Locale
 abstract class BaseMusicWidgetProvider(private val isExpanded: Boolean) : AppWidgetProvider() {
 
     companion object {
-        const val ACTION_PLAY_PAUSE = "com.novafiles.app.widget.ACTION_PLAY_PAUSE"
-        const val ACTION_NEXT = "com.novafiles.app.widget.ACTION_NEXT"
-        const val ACTION_PREVIOUS = "com.novafiles.app.widget.ACTION_PREVIOUS"
+        const val ACTION_PLAY_PAUSE = "com.xan.novafiles.widget.ACTION_PLAY_PAUSE"
+        const val ACTION_NEXT = "com.xan.novafiles.widget.ACTION_NEXT"
+        const val ACTION_PREVIOUS = "com.xan.novafiles.widget.ACTION_PREVIOUS"
     }
 
     override fun onUpdate(

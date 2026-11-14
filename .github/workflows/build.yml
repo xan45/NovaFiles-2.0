@@ -1,4 +1,4 @@
-name: NovaFiles 2.0 CI
+name: NovaFiles CI
 
 on:
   push:

@@ -125,7 +125,7 @@ fun AppWordmark(
     modifier: Modifier = Modifier,
     titleSize: TextUnit = 24.sp,
     showBadge: Boolean = false,
-    badgeText: String = "v1.0"
+    badgeText: String = "Alpha 1.0"
 ) {
     Row(
         modifier = modifier,

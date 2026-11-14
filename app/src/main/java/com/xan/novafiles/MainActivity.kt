@@ -1,4 +1,4 @@
-package com.novafiles.app
+package com.xan.novafiles
 
 import android.os.Bundle
 import android.os.Environment
@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appSettings by settingsRepo.settings.collectAsState()
             val themeConfig = appSettings.themeConfig
-            var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            var showSplash by rememberSaveable { mutableStateOf(true) }
             val pinSecurityManager = remember { PinSecurityManager(applicationContext) }
             var isAppUnlocked by rememberSaveable {
                 mutableStateOf(!appSettings.isAppLockEnabled || !pinSecurityManager.hasPin)
@@ -1075,7 +1075,11 @@ fun NovaThemeSelectorCard(
                 ThemeMode.entries.forEach { mode ->
                     val isSelected = themeConfig.mode == mode
                     NovaButton(
-                        text = mode.name,
+                        text = when (mode) {
+                            ThemeMode.WHITE -> "White"
+                            ThemeMode.BLACK -> "Black"
+                            ThemeMode.CUSTOM -> "Custom"
+                        },
                         onClick = { onThemeConfigChange(themeConfig.copy(mode = mode)) },
                         variant = if (isSelected) NovaButtonVariant.PRIMARY else NovaButtonVariant.SECONDARY,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

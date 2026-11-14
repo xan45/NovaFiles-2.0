@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace = "com.novafiles.app"
+    namespace = "com.xan.novafiles"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.novafiles.app"
+        applicationId = "com.xan.novafiles"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "2.0.0-alpha.1"
+        versionCode = 1
+        versionName = "1.0.0-alpha1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

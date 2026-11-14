@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class AppSettings(
-    val themeConfig: ThemeConfig = ThemeConfig(mode = ThemeMode.DARK, accent = AccentColor.INDIGO),
+    val themeConfig: ThemeConfig = ThemeConfig(mode = ThemeMode.BLACK, accent = AccentColor.INDIGO),
     val showHiddenFiles: Boolean = false,
     val defaultSortBy: SortBy = SortBy.NAME,
     val sortDirection: SortDirection = SortDirection.ASCENDING,
@@ -29,10 +29,19 @@ class SettingsPreferencesRepository(context: Context) {
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private fun loadSettings(): AppSettings {
-        val modeName = prefs.getString("theme_mode", ThemeMode.DARK.name) ?: ThemeMode.DARK.name
+        val modeName = prefs.getString("theme_mode", ThemeMode.BLACK.name) ?: ThemeMode.BLACK.name
         val accentName = prefs.getString("theme_accent", AccentColor.INDIGO.name) ?: AccentColor.INDIGO.name
-        val mode = runCatching { ThemeMode.valueOf(modeName) }.getOrDefault(ThemeMode.DARK)
+        val mode = when (modeName.uppercase()) {
+            "LIGHT", "WHITE" -> ThemeMode.WHITE
+            "DARK", "AMOLED", "BLACK" -> ThemeMode.BLACK
+            "CUSTOM" -> ThemeMode.CUSTOM
+            else -> ThemeMode.BLACK
+        }
         val accent = runCatching { AccentColor.valueOf(accentName) }.getOrDefault(AccentColor.INDIGO)
+
+        val customBg = prefs.getLong("custom_bg", 0xFF121212L)
+        val customSurface = prefs.getLong("custom_surface", 0xFF1E1E1EL)
+        val customCard = prefs.getLong("custom_card", 0xFF2A2A2AL)
 
         val showHidden = prefs.getBoolean("show_hidden_files", false)
         val sortByName = prefs.getString("default_sort_by", SortBy.NAME.name) ?: SortBy.NAME.name
@@ -44,7 +53,13 @@ class SettingsPreferencesRepository(context: Context) {
         val confirmDelete = prefs.getBoolean("confirm_file_deletion", true)
 
         return AppSettings(
-            themeConfig = ThemeConfig(mode = mode, accent = accent),
+            themeConfig = ThemeConfig(
+                mode = mode,
+                accent = accent,
+                customBackground = customBg,
+                customSurface = customSurface,
+                customCard = customCard
+            ),
             showHiddenFiles = showHidden,
             defaultSortBy = sortBy,
             sortDirection = sortDir,
@@ -57,6 +72,9 @@ class SettingsPreferencesRepository(context: Context) {
         prefs.edit()
             .putString("theme_mode", config.mode.name)
             .putString("theme_accent", config.accent.name)
+            .putLong("custom_bg", config.customBackground)
+            .putLong("custom_surface", config.customSurface)
+            .putLong("custom_card", config.customCard)
             .apply()
         _settings.update { it.copy(themeConfig = config) }
     }

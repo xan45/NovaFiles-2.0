@@ -36,7 +36,7 @@ data class MusicState(
 
 object MusicPlaybackManager {
 
-    const val ACTION_WIDGET_UPDATE = "com.novafiles.app.ACTION_MUSIC_WIDGET_UPDATE"
+    const val ACTION_WIDGET_UPDATE = "com.xan.novafiles.ACTION_MUSIC_WIDGET_UPDATE"
 
     private var player: ExoPlayer? = null
     private var appContext: Context? = null

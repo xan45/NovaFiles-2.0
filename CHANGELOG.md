@@ -5,51 +5,20 @@ All notable changes to NovaFiles will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v2.0.0-alpha.2] - 2026-11-07
-
-### Fixed
-- **Duplicate Scanner Collision & Data Loss**: Replaced 8 KB truncated MD5 checksum with full-stream SHA-256 calculation processed in 64 KB streaming buffers, preventing data loss from false duplicate collisions.
-- **Transactional Move Safety**: Hardened `FileOperationsEngine.moveFiles` with copy-then-delete verification; source files are now only removed after confirming destination existence and size, with automatic rollback if copy fails.
-- **Recursive Move Prevention**: Added canonical path parent checks preventing moving or copying directories into themselves or any of their descendants.
-- **Biometric Hardware Authentication**: Migrated `MainActivity` to `androidx.fragment.app.FragmentActivity`, resolving biometric authentication failures across Android 10+.
-- **All-Files-Access Permission Flow**: Added a dedicated storage permission onboarding screen with one-tap CTA directing users to system storage settings when `MANAGE_EXTERNAL_STORAGE` is not yet granted.
-- **Foreground Service Lifecycle**: Replaced premature `startForegroundService` call in `MusicPlaybackManager` with on-demand service binding, eliminating `ForegroundServiceDidNotStartInTimeException` crashes.
-- **Dead File Browser Controls**: Fully connected the (+) FAB to `NovaInputDialog` folder creation, connected selection dock actions (Copy, Move, Rename, Delete), and added floating clipboard paste bar.
-- **Live Dashboard Storage Metrics**: Connected real `FileSystemDataSource` storage statistics, live directories, and live recent files to `NovaHomeDashboard`, replacing static placeholders.
-- **Theme Persistence**: Connected `SettingsPreferencesRepository` in `MainActivity` ensuring selected theme mode and accent color persist across app restarts.
-- **Data Integrity & Simulation Removal**: Removed 19.4 MB synthetic junk file generator (`sample_junk_cache`) and removed hardcoded mock deleted items from storage analysis.
-- **Backup Data Protection**: Set `android:allowBackup="false"` in `AndroidManifest.xml` to prevent extraction of PBKDF2 vault credentials via ADB backup.
-- **Dependency Acknowledgements**: Corrected About screen credits to accurately list Compose ("Declarative UI") instead of Room.
-
-### Changed
-- Configured automated release signing via `local.properties` and environment variables with official `novafiles-release.jks` keystore.
-- Upgraded release build configuration to `versionCode = 10`, `versionName = "2.0.0-alpha2"`.
-
-## [v2.0.0-alpha.1] - 2026-11-07
+## [1.0.0-alpha1] — Initial Public Alpha Release
 
 ### Added
-- **Multi-Module Clean Architecture**: Rewrote the entire application from the ground up into 17 decoupled Gradle modules (`:app`, `:core:common`, `:core:model`, `:core:designsystem`, `:core:ui`, `:core:navigation`, `:core:storage`, `:core:media`, `:core:security`, `:data:files`, `:feature:files`, `:feature:dualpane`, `:feature:music`, `:feature:video`, `:feature:gallery`, `:feature:vault`, `:feature:analyzer`, `:feature:cleaner`, `:feature:ftp`, `:feature:settings`).
-- **Signature Dark Navy Design Language**: Implemented modern Dark Navy base aesthetic (`#0B1226`, `#111B3A`, `#1A2547`, `#2A3A6A`, `#5B6EF5`) with 18 dynamic theme variations across Dark Navy, AMOLED Pure Black, and Clean Light modes with 6 accent palettes (Indigo, Violet, Cyan, Green, Orange, Pink).
-- **Dual-Pane Desktop-Grade File Browser**: Independent side-by-side pane directory navigation, synchronized folder viewing, drag-and-drop file transfers, and single-tap cross-pane copy/move.
-- **Transactional File Operations Engine**: Atomic copy, move, rename, batch delete, and archive operations with rollback safety and automated filename collision resolution (`(1)`, `(2)`).
-- **Storage Analyzer**: Visual storage capacity breakdown with animated circular usage gauge, multi-segment category distribution bar (Photos, Videos, Audio, Documents, APKs, System/Archives), large files scanner (>50 MB), and trash bin monitor.
-- **Storage Cleaner**: Deep storage scanning for application cache, system logs, empty directories, obsolete APK packages, and MD5-hash verified duplicate files.
-- **AndroidX Media3 Music Player**: Complete `MediaSessionService` implementation with persistent playback notification, dynamic album art, lock-screen controls, background playback, and repeat/shuffle queues.
-- **Interactive Home-Screen App Widgets**: Jetpack Glance powered Compact and Expanded music player widgets connected directly to real MediaSession state with playback controls.
-- **Cinematic Gesture Video Player**: Hardware-accelerated ExoPlayer implementation featuring vertical swipe brightness control (left edge), volume control (right edge), horizontal swipe timeline scrubbing, double-tap seek, and auto-hiding frosted glass playback controls.
-- **High-Performance Photo Gallery**: Responsive multi-column grid, full-screen swipeable image pager with smooth pinch-to-zoom, pan, rotation, and EXIF metadata viewer.
-- **Hardware-Backed AES-256 Secure Vault**: End-to-end file encryption using AES-256-GCM with unique 12-byte initialization vectors (IV), PBKDF2-HMAC-SHA256 password derivation (65,536 iterations), Biometric Prompt (fingerprint/face) unlock, duress PIN wipe triggers, and `NOVAV1` header authentication.
-- **Embedded Wi-Fi FTP Server**: RFC 959 compliant wireless file transfer server supporting active and passive (`PASV`, `EPSV`) data modes, custom ports, anonymous or authenticated logins, canonical path-traversal sandboxing, and persistent notification status.
-- **Built-in Code & Text Editor**: Monospace code viewing and editing engine supporting `.txt`, `.md`, `.json`, `.xml`, `.log`, `.gradle`, `.kt`, and `.html` with non-blocking coroutine background saving.
-- **R8 ProGuard & Shrinking Configuration**: Production R8 optimization reducing APK binary footprint from ~25.1 MB debug down to **4.9 MB release** (~80% size reduction) with 100% vital lint pass.
-- **Full Module Unit Test Suite**: Comprehensive unit tests covering domain models, ViewModels, encryption ciphers, path normalizers, and repository streams.
-
-### Changed
-- Migrated legacy single-module Java/Kotlin architecture to modern Kotlin 2.0+ and Jetpack Compose BOM 2024.10+.
-- Replaced custom media notification with official AndroidX Media3 `MediaNotificationProvider` for lock screen and Bluetooth AVRCP support.
-- Modernized all storage access to adhere to Android 14/15/16 Storage Access Framework (SAF) and scoped MediaStore guidelines.
-
-### Security
-- Added secure PBKDF2 key derivation and AES-GCM tag verification preventing unauthorized decryption or payload manipulation.
-- Implemented canonical sandbox checks in Wi-Fi FTP server preventing directory traversal above the configured root.
-- Vault files are encrypted in-memory and wiped from temporary memory buffers immediately upon operation completion.
+- **Unified File Manager**: Single vertically scrollable list displaying folders followed by files, with List View and Grid View options, breadcrumb path navigation, search, and real-time operation progress indicators.
+- **Context Menu System (BUG-004)**: Contextual action sheet for individual files and folders providing Open, Open with, Cut, Copy, Paste into, Rename, Delete, Share, Properties & Checksum, Add to Favorites, Compress (ZIP), and Extract actions without triggering multi-selection mode.
+- **Multi-Selection & Batch Operations**: Floating selection dock supporting batch Copy, Cut/Move, Delete, Share, and Compress operations.
+- **Tabbed Multi-Pane Manager (FEATURE-003)**: Full-screen tabbed file explorer supporting multiple independent tabs, horizontal swipe navigation, add/close tab controls, separate folder history and scroll positions per tab, and cross-tab copy/paste transfers.
+- **Full-Screen Storage Category Explorer (FEATURE-005)**: Full-screen browsing interface for Audio, Videos, Documents, Images, and APKs with integrated search, sorting, context operations, and live storage statistics synchronization.
+- **Local Media Gallery (FEATURE-002)**: Dedicated media viewer featuring All Images (chronological grid with date grouping), Folders view, custom persistent Albums, hidden folder exclusion detection, and detailed EXIF metadata inspection.
+- **Video Library & Player (FEATURE-010)**: Comprehensive video hub with All Videos, Folders, and custom persistent Playlists, paired with an AndroidX Media3/ExoPlayer video player featuring edge gesture controls for volume and brightness, horizontal scrubbing, speed adjustment (0.5x–2.0x), audio/subtitle track selection, and technical metadata display.
+- **Audio & Music Studio**: AndroidX Media3 `MediaSessionService` player with persistent playback notifications, dynamic album art, lock-screen controls, background playback, and interactive Glance home-screen widgets.
+- **Storage Analyzer & Cleaner**: Circular capacity breakdown gauge, multi-segment category distribution visualization, large file inspection, and storage junk cleaner (app cache, temporary logs, obsolete APK installers, and SHA-256 duplicate detection).
+- **Wi-Fi FTP Server**: Embedded RFC 959 compliant FTP server supporting passive data transfers, sandboxed directory validation, and persistent foreground notification with one-tap shutdown.
+- **Code & Text Editor**: Integrated monospace viewer and editor for plain text, markdown, JSON, XML, logs, and code files with background persistence.
+- **Tri-Mode Theming & Palette Engine (Phase 5C)**: Pure White Light Theme, AMOLED Pure Black (`#000000`), and configurable Custom Theme with live color swatch selection, custom hex code inputs, luminance-based text contrast calculation, and instant default reset.
+- **Application Security**: Optional PIN lock screen protecting application entry.
+- **Application Package Migration (Phase 6A)**: Migrated package identifier and namespace to `com.xan.novafiles`.

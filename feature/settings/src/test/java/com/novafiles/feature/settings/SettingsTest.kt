@@ -15,7 +15,7 @@ class SettingsTest {
     @Test
     fun testAppSettingsDefaults() {
         val settings = AppSettings()
-        assertEquals(ThemeMode.DARK, settings.themeConfig.mode)
+        assertEquals(ThemeMode.BLACK, settings.themeConfig.mode)
         assertEquals(AccentColor.INDIGO, settings.themeConfig.accent)
         assertFalse(settings.showHiddenFiles)
         assertEquals(SortBy.NAME, settings.defaultSortBy)
@@ -29,8 +29,19 @@ class SettingsTest {
         val totalCombinations = ThemeMode.entries.size * AccentColor.entries.size
         assertEquals(18, totalCombinations)
 
-        val amoledCoral = ThemeConfig(mode = ThemeMode.AMOLED, accent = AccentColor.CORAL)
-        assertEquals(ThemeMode.AMOLED, amoledCoral.mode)
-        assertEquals(AccentColor.CORAL, amoledCoral.accent)
+        val blackCoral = ThemeConfig(mode = ThemeMode.BLACK, accent = AccentColor.CORAL)
+        assertEquals(ThemeMode.BLACK, blackCoral.mode)
+        assertEquals(AccentColor.CORAL, blackCoral.accent)
+
+        val customCyan = ThemeConfig(
+            mode = ThemeMode.CUSTOM,
+            accent = AccentColor.CYAN,
+            customBackground = 0xFF121212L,
+            customSurface = 0xFF1E1E1EL,
+            customCard = 0xFF2A2A2AL
+        )
+        assertEquals(ThemeMode.CUSTOM, customCyan.mode)
+        assertEquals(AccentColor.CYAN, customCyan.accent)
+        assertEquals(0xFF121212L, customCyan.customBackground)
     }
 }

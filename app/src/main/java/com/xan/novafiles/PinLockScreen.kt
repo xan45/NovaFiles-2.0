@@ -1,4 +1,4 @@
-package com.novafiles.app
+package com.xan.novafiles
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

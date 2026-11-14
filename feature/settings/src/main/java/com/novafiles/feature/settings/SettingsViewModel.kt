@@ -34,6 +34,32 @@ class SettingsViewModel @JvmOverloads constructor(
         repository.updateThemeConfig(current.copy(accent = accent))
     }
 
+    fun setThemeConfig(config: ThemeConfig) {
+        repository.updateThemeConfig(config)
+    }
+
+    fun setCustomColors(background: Long, surface: Long, card: Long) {
+        val current = settings.value.themeConfig
+        repository.updateThemeConfig(
+            current.copy(
+                customBackground = background,
+                customSurface = surface,
+                customCard = card
+            )
+        )
+    }
+
+    fun resetCustomColors() {
+        val current = settings.value.themeConfig
+        repository.updateThemeConfig(
+            current.copy(
+                customBackground = 0xFF121212L,
+                customSurface = 0xFF1E1E1EL,
+                customCard = 0xFF2A2A2AL
+            )
+        )
+    }
+
     fun setShowHiddenFiles(show: Boolean) {
         repository.updateShowHiddenFiles(show)
     }

@@ -1,195 +1,166 @@
 # NovaFiles
 
-> **Next-Generation Android File Manager, Media Studio & Storage Optimization Suite**  
-> Built with modern Kotlin, Jetpack Compose, Clean Architecture, and AndroidX Media3.
+> **Modern, High-Performance File Manager, Media Browser & Storage Suite for Android**  
+> Built with Kotlin, Jetpack Compose, Material 3, Clean Architecture, and AndroidX Media3.
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-blue.svg?logo=kotlin)](https://kotlinlang.org)
-[![Android Gradle Plugin](https://img.shields.io/badge/AGP-8.7+-green.svg?logo=android)](https://developer.android.com/studio/releases/gradle-plugin)
-[![Jetpack Compose](https://img.shields.io/badge/Compose-BOM%202024.10-purple.svg?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--alpha1-blue.svg)](https://github.com/xan45/NovaFiles-2.0/releases)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg?logo=android)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0%2B-purple.svg?logo=kotlin)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Compose-BOM%202024.10-informational.svg?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVVM-orange.svg)]()
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ---
 
-## 🌟 Overview
+## About NovaFiles
 
-**NovaFiles** is a clean-slate, ground-up rewrite engineered from the approved architectural blueprint. It replaces legacy file management systems with a decoupled, reactive, multi-module architecture adhering strictly to Google's recommended Modern Android Architecture standards.
+NovaFiles is a modern, power-user Android file manager designed for fluid navigation, comprehensive local media management, and intelligent storage exploration. Engineered completely from scratch using Modern Android Development (MAD) practices and a modular Clean Architecture, NovaFiles delivers a responsive, desktop-grade browsing experience directly on your mobile device.
 
-Designed around a signature **Dark Navy** aesthetic (`#0B1226`, `#111B3A`, `#1A2547`, `#2A3A6A`, `#5B6EF5`), NovaFiles pairs high-performance storage indexing with a desktop-grade feature set.
-
----
-
-## 🎨 Visual Design Language & Themes
-
-NovaFiles implements an 18-variation design engine supporting dynamic real-time theme swapping:
-
-* **Theme Modes:**
-  * **Dark Navy (Default):** Deep midnight blue canvas (`#0B1226`), elevated slate surfaces (`#111B3A`, `#1A2547`), subtle borders (`#2A3A6A`).
-  * **AMOLED Pure Black:** Pure `#000000` base for maximum power efficiency on OLED panels.
-  * **Clean Light:** High-contrast neutral slate (`#F8FAFC`) with crisp card surfaces (`#FFFFFF`).
-* **Accent Colors:** Indigo (`#5B6EF5`), Violet (`#8A6CFF`), Cyan (`#2DD4BF`), Green (`#4ADE80`), Orange (`#FF9F43`), Pink (`#F472B6`).
-* **Category Color Matrix:** Photos (Purple `#8A6CFF`), Videos (Coral Red `#FF6B6B`), Documents (Blue `#3B82F6`), Audio (Warm Yellow `#FFD166`), APKs (Emerald `#10B981`), Archives (Magenta `#EC4899`).
+Key design tenets:
+- **Fast & Responsive**: Single-source-of-truth reactive UI powered by Kotlin Coroutines, StateFlow, and Jetpack Compose.
+- **Uncompromised Power**: Multi-tabbed browsing, transactional batch file operations, cross-tab transfers, and Wi-Fi FTP file sharing.
+- **Privacy & Safety**: Zero tracking, local-only processing, safe copy-then-delete transfers, and optional PIN application lock.
+- **Modern Aesthetics**: Tri-mode base theming (White Light, AMOLED Pure Black, and Custom Palette Engine) with 6 curated accent colors.
 
 ---
 
-## 🏗️ Architecture & Modular Structure
+## Features
 
-The codebase is organized into **17 cohesive, decoupled Gradle modules**:
+### 📁 File Management
+- **Unified Vertical Listing**: Folders and files displayed together in one vertical scrollable hierarchy, with folders prioritized at the top.
+- **Flexible Layouts**: List View as default for detailed file metadata and Grid View for visual thumbnail exploration.
+- **Context Actions (BUG-004)**: Tapping the three-dot button opens the file context menu (Open, Open with, Cut, Copy, Paste into, Rename, Delete, Share, Properties & Checksum, Add to Favorites, Compress, Extract) without accidentally triggering multi-selection.
+- **Multi-Selection & Batch Dock**: Long-press any item to activate selection mode with bulk operations (Copy, Move, Delete, Share, Compress).
+- **Clipboard Management**: Floating persistent dock displaying queued files with item counts, quick Paste, and Clear actions.
+- **Fast Breadcrumb Navigation**: Tap any path segment in the breadcrumb bar to jump directly to parent directories.
+- **In-Browser Search & Filtering**: Instant search across filenames and real-time category filtering.
 
-```text
-NovaFiles/
-├── app/                  # Application bootstrap, navigation graph, app widgets
-├── core/
-│   ├── common/           # Result types, formatters, coroutine dispatchers
-│   ├── model/            # Domain models (FileItem, StorageStats, FileType, SortConfig)
-│   ├── designsystem/     # Color tokens, typography, shapes, NovaTheme (18 styles)
-│   ├── ui/               # Reusable UI components (NovaCard, NovaButton, StorageBar, etc.)
-│   ├── navigation/       # Type-safe Serializable navigation destinations
-│   ├── storage/          # SAF, MediaStore engine, transactional file operations
-│   ├── media/            # AndroidX Media3 player service & MediaSession engine
-│   └── security/         # AES-256-GCM cipher, PBKDF2 key derivation, lockout manager
-├── data/
-│   └── files/            # Reactive FileRepository, indexing & search streams
-└── feature/
-    ├── files/            # Home dashboard, file browser, text/code editor
-    ├── dualpane/         # Dual-pane side-by-side file manager & drag-transfer
-    ├── music/            # Media3 music player, playlist queue & lyric view
-    ├── video/            # Cinematic gesture video player (volume, brightness, seek)
-    ├── gallery/          # High-performance photo gallery & pinch-zoom viewer
-    ├── vault/            # Hardware-backed AES-256 encrypted secure storage
-    ├── analyzer/         # Storage breakdown, category distribution & large files
-    ├── cleaner/          # Junk cleaner (app cache, logs, obsolete APKs, duplicates)
-    ├── ftp/              # RFC 959 Wi-Fi FTP server with foreground service
-    └── settings/         # Theme customizer, security locks & app preferences
-```
+### 📑 Multi-Pane Manager
+- **Full-Screen Tabbed Browsing**: Multi-tab workspace replacing clumsy split-screen views.
+- **Independent Tab State**: Each tab maintains its own directory history, scroll position, and selection state.
+- **Tab Controls**: Quickly add new tabs (`+`), close inactive tabs, and tap or swipe between open locations.
+- **Cross-Tab File Transfers**: Select items in one tab, cut or copy, switch tabs, and paste directly into another destination.
 
----
+### 🖼️ Local Media Gallery
+- **All Images View**: Chronological photo grid organized with date headers (Today, Yesterday, Months).
+- **Folder Navigation**: Browse image folders with thumbnail previews and item counts.
+- **Custom Albums**: Create, rename, and manage custom photo collections persisted locally.
+- **Smart Hidden Folder Detection**: Excludes system caches (`.thumbnails`, `.cache`) while providing an optional toggle to show hidden media.
+- **EXIF Metadata Sheet**: Inspect camera model, lens, aperture, shutter speed, ISO, focal length, and GPS coordinates.
 
-## ⚡ Key Features
+### 🎬 Video Library & Player
+- **Three-Section Library**: All Videos, Folders, and custom persistent Playlists.
+- **Rich Video Badges**: Automatic duration tags and resolution badges (4K UHD, 1080p FHD, 720p HD, SD).
+- **ExoPlayer Media3 Integration**: Hardware-accelerated playback with gesture brightness (left edge), volume (right edge), and continuous timeline scrubbing.
+- **Playback Controls**: Variable speed playback (0.5x to 2.0x), audio and subtitle track selection, orientation lock, and technical stream metadata inspection.
 
-### 1. Dual-Pane Desktop-Grade File Management
-* Independent, side-by-side directory navigation.
-* Fast folder swapping, synchronized navigation, and single-tap cross-pane copy/move.
-* Transactional file operations engine with automatic rollback on failure.
+### 🎵 Audio & Music Studio
+- **Media3 Background Audio**: Persistent foreground playback notification with dynamic album artwork and lock-screen controls.
+- **Home-Screen Widgets**: Interactive Glance widgets providing instant playback controls from your launcher.
+- **Library Organization**: Browse tracks, albums, artists, and audio folders with live playlist queue support.
 
-### 2. Media Studio
-* **Music Player:** Fully integrated with AndroidX Media3 `MediaSessionService`. Persistent notification with dynamic album art, lock-screen playback controls, and background playback.
-* **App Widgets:** Compact and Expanded interactive Android home-screen widgets reflecting real MediaSession state.
-* **Video Player:** Hardware-accelerated ExoPlayer with intuitive swipe gestures for brightness (left edge), volume (right edge), and scrubbing (horizontal drag).
-* **Photo Gallery:** Grid/detail browsing with smooth pinch-to-zoom and rotation.
+### 📊 Storage Analyzer & Cleaner
+- **Storage Overview**: Visual capacity breakdown featuring an animated circular usage gauge and multi-segment category allocation bar.
+- **Full-Screen Category Browser**: Drill into Audio, Videos, Documents, Images, and APKs in a dedicated browser view with full sorting and batch operations.
+- **Junk Cleaner**: Scans for application cache remnants, temporary logs, obsolete APK installers, empty folders, and SHA-256 verified duplicate files.
 
-### 3. Storage Optimization & Analytics
-* **Storage Analyzer:** Circular usage gauge, multi-segment category allocation bar, large files scanner (>50MB), and live storage monitor matching the visual reference.
-* **Storage Cleaner:** Automated scans for application cache, temporary crash logs, obsolete APK installers, empty directories, and full-stream SHA-256 verified duplicate files.
-
-### 4. Hardware-Backed AES-256 Secure Vault
-* AES-256-GCM authenticated encryption with unique 12-byte IVs.
-* PBKDF2-HMAC-SHA256 password derivation (120,000 iterations).
-* `NOVAV1` file encapsulation header for foolproof integrity checks.
-* Duress PIN support and Biometric (Fingerprint/Face) hardware authentication.
-
-### 5. Wi-Fi FTP Server
-* Embedded RFC 959 compliant FTP server supporting passive (`PASV`, `EPSV`) data transfers.
-* Canonical sandbox validation to prevent path-traversal attacks.
-* Persistent foreground notification (`novafiles_ftp_channel`) with one-tap shutdown.
-
-### 6. Built-in Code & Text Editor
-* Monospace viewer and editor supporting `.txt`, `.md`, `.json`, `.xml`, `.log`, `.gradle`, `.kt`, `.html`.
-* Non-blocking background coroutine IO persistence.
+### 🛠️ Utilities & System Tools
+- **Wi-Fi FTP Server**: Embedded RFC 959 FTP server with passive mode support, sandboxed path validation, and notification controls.
+- **Built-in Text & Code Editor**: Monospace code and text editor supporting `.txt`, `.md`, `.json`, `.xml`, `.log`, `.gradle`, and source files.
+- **Tri-Mode Theming**:
+  - `White`: Clean light canvas with high-contrast text.
+  - `Black`: True AMOLED `#000000` base for maximum OLED battery savings.
+  - `Custom`: Interactive color engine with palette swatches, HEX color inputs, and automatic text luminance contrast adjustment.
+- **App Lock**: Optional PIN-based security gate protecting application launch.
 
 ---
 
-## 🧪 Testing & Quality Assurance
+## Screenshots
 
-Unit test suites cover domain logic, view models, formatters, and security ciphers across all 17 modules:
+| Home Dashboard | File Manager | Context Menu |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/phase6b_home_ready.png) | ![Files](docs/screenshots/phase6b_files_browser.png) | ![Context Menu](docs/screenshots/phase6b_file_context_menu.png) |
 
-* `:core:common` — Human-readable byte formatting, dates, path normalizers.
-* `:core:model` — File classification by MIME and extension.
-* `:core:designsystem` — Verification of all 18 theme and accent variations.
-* `:core:navigation` — Navigation route serializability and argument decoding.
-* `:core:security` — Round-trip AES-256-GCM encryption, decryption, invalid key rejection, tampering detection.
-* `:core:storage` — Transactional file operations, collision resolution.
-* `:data:files` — Reactive FileRepository streams and sorting.
-* `:feature:files` — FilesViewModel navigation, multi-selection, and search queries.
-* `:feature:dualpane` — DualPaneViewModel concurrent navigation, swapping, and sync.
-* `:feature:music` — Playback state machine, repeat modes, queue shuffling.
-* `:feature:video` — Aspect ratios, time formatting, player state transitions.
-* `:feature:gallery` — Image media grouping, date formatting.
-* `:feature:vault` — Master password hashing, lockout logic, duress PIN triggers.
-* `:feature:analyzer` — Storage calculations, percentage distributions.
-* `:feature:cleaner` — Junk item categorization, total reclaimable space logic.
-* `:feature:ftp` — Server configuration defaults, anonymous access policies.
-* `:feature:settings` — Persistent settings preferences and default mappings.
-
-To execute the test suite:
-```bash
-./gradlew test
-```
+| Multi-Pane Manager | Settings (AMOLED) | Settings (White) |
+|:---:|:---:|:---:|
+| ![Multi-Pane](docs/screenshots/phase6b_multipane.png) | ![Settings Black](docs/screenshots/phase6b_settings_black.png) | ![Settings White](docs/screenshots/phase6b_settings_white.png) |
 
 ---
 
-## 📦 Building & Release
+## Installation
 
-### Debug Build
-```bash
-./gradlew assembleDebug
-```
+### Download
+Download the latest signed release APK from the [GitHub Releases](https://github.com/xan45/NovaFiles-2.0/releases) page:
+- **File**: `NovaFiles-1.0.0-alpha1.apk`
 
-### Production Release Build (R8 / Minified & Shrunk)
-NovaFiles uses R8 whole-program optimization and resource shrinking:
-* **Debug APK Size:** ~25.1 MB
-* **Release APK Size:** **~4.9 MB (~80% reduction)**
-* **Zero Lint Vital Errors**
+### Sideloading Instructions
+1. Download `NovaFiles-1.0.0-alpha1.apk` to your Android device.
+2. Open your device's browser downloads or notifications and tap the downloaded file.
+3. If prompted by Android, enable **Install unknown apps** for your browser or file manager.
+4. Tap **Install** and launch NovaFiles from your app drawer.
 
-```bash
-./gradlew assembleRelease
-```
-
-The resulting signed APK is placed at:
-`app/build/outputs/apk/release/app-release.apk`
+### Permissions
+NovaFiles requests only permissions strictly necessary for its functionality:
+- `MANAGE_EXTERNAL_STORAGE` (`All files access`): Required on Android 11+ to browse, manage, copy, move, and edit files across your device storage.
+- `POST_NOTIFICATIONS`: Required on Android 13+ to display background audio playback controls and FTP server status.
+- `FOREGROUND_SERVICE`: Required to maintain uninterrupted background music playback, FTP transfers, and lengthy file copy operations.
 
 ---
 
-## 📲 Installation & Upgrade Notice
+## Compatibility
 
-> [!WARNING]
-> **Clean Installation Required for Upgrades from Legacy v1.x**  
-> NovaFiles is a complete ground-up rewrite featuring a modernized database schema, multi-module architecture, and an updated release signing key.  
-> * If you have any previous legacy build (v1.0.0-beta1 through v1.0.0-rc.2-build3) installed on your device, you **must completely uninstall the old version** before installing NovaFiles.
-> * In-place updates over legacy builds will result in an `INSTALL_FAILED_UPDATE_INCOMPATIBLE` signature mismatch error from the Android Package Manager.
-> * Ensure you back up any unencrypted vault files before uninstalling previous legacy versions.
-
----
-
-## 📱 Physical Device Verification
-
-NovaFiles has been verified on physical hardware running Android 17 / SDK 37:
-* **Target Hardware**: Samsung Galaxy (`SM-S942B`), Octa-core ARM64-v8a.
-* **OS Version**: Android 17 (API 37).
-* **Storage Diagnostics**: Verified live scanning of internal storage, identifying 2.1 GB of reclaimable junk and 35 obsolete APK installers with sub-second responsiveness.
-* **Theming Engine**: Verified dynamic real-time swapping across all 18 theme variations (including Dark Navy default and pure AMOLED `#000000` power-saving mode).
-* **Media & Playback**: Verified persistent Media3 notification, lock-screen controls, and background playback resumption.
+- **Application ID**: `com.xan.novafiles`
+- **Minimum Android Version**: Android 8.0 Oreo (API Level 26)
+- **Target Android Version**: Android 15 (API Level 35)
+- **Compile SDK**: Android API 36
+- **Architecture**: Kotlin 2.0, Jetpack Compose BOM 2024.10, Coroutines & StateFlow, AndroidX Media3 1.5.0
 
 ---
 
-## 🔒 Privacy & Security
+## Alpha Disclaimer
 
-* **100% Offline**: NovaFiles requires zero internet permissions for core file management.
-* **Zero Telemetry**: No analytics SDKs, no ad trackers, and no remote crash reporting beacons.
-* **Local Processing**: Storage analysis, duplicate detection, and encryption take place 100% on-device.
-* **Sandboxed Wi-Fi FTP**: Wireless transfers operate strictly over the user's local Wi-Fi subnet with canonical path-traversal sandboxing.
-
----
-
-## 👨‍💻 Developer & Project Attribution
-
-* **Lead Developer & Maintainer**: **Abhinav Kishore (Xan45)**
-* **Engineering Platform**: Crafted with **Google Antigravity**
-* **Support & Inquiries**: [xandronhq@gmail.com](mailto:xandronhq@gmail.com)
-* **Official Repository**: [https://github.com/xan45/NovaFiles](https://github.com/xan45/NovaFiles)
-* **Legacy Archive**: [https://github.com/xan45/NovaFiles-Legacy](https://github.com/xan45/NovaFiles-Legacy) (Historical reference only)
+> ⚠️ **IMPORTANT NOTICE**: NovaFiles Alpha 1.0 (`1.0.0-alpha1`) is an early public testing release.
+> - While core file operations are guarded by transactional verification, unexpected bugs or edge-case behavior may occur.
+> - **Always back up important data** before performing destructive file operations (e.g. bulk deletions, moves across storage volumes).
+> - We actively welcome early feedback, bug reports, and suggestions to help stabilize upcoming releases.
 
 ---
 
-## 📄 License
-Licensed under the Apache License, Version 2.0.
+## Feedback & Bug Reporting
+
+If you encounter issues or have suggestions:
+1. Check existing [GitHub Issues](https://github.com/xan45/NovaFiles-2.0/issues) to see if the issue is already reported.
+2. Open a new issue using our **Bug Report** or **Feature Request** templates.
+3. Provide your device model, Android OS version, and detailed reproduction steps.
+
+---
+
+## Roadmap
+
+### Current (Alpha 1.0 — Implemented)
+- [x] Unified file manager with context menus and batch operations
+- [x] Full-screen tabbed Multi-Pane manager with cross-tab transfers
+- [x] Full-screen Storage Analyzer category browser
+- [x] Comprehensive media gallery with albums and EXIF inspection
+- [x] Video library with playlists and gesture player
+- [x] Media3 music studio and home-screen Glance widgets
+- [x] Wi-Fi FTP server with passive transfers
+- [x] Tri-mode theming (White, AMOLED Black, Custom Palette Engine)
+- [x] Storage junk cleaner with SHA-256 duplicate detection
+- [x] Application package migration to `com.xan.novafiles`
+
+### In Progress (Alpha 1.x)
+- [ ] Drag-and-drop file movement between Multi-Pane tabs on large screen and foldable devices
+- [ ] Advanced file search with regex and date/size query filters
+- [ ] Enhanced ZIP archive extraction with password decryption
+
+### Planned (Beta & v1.0 Stable)
+- [ ] Cloud storage and network shares (SMB v2/v3, WebDAV, SFTP)
+- [ ] User-customizable typography scaling and font family selection
+- [ ] Split-screen dual pane mode for tablets and desktop environments (Samsung DeX)
+
+---
+
+## License
+
+NovaFiles is licensed under the [Apache License, Version 2.0](LICENSE).

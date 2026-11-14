@@ -1,4 +1,4 @@
-package com.novafiles.app
+package com.xan.novafiles
 
 import android.app.Application
 import coil.ImageLoader

@@ -42,10 +42,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
 import com.novafiles.core.designsystem.R
 import com.novafiles.core.designsystem.theme.ColorNeonCyan
 import com.novafiles.core.designsystem.theme.NovaTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun NovaSplashScreen(
@@ -68,24 +70,26 @@ fun NovaSplashScreen(
     )
 
     LaunchedEffect(Unit) {
-        // Smooth entrance
-        scale.animateTo(
-            targetValue = 1.0f,
-            animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing)
-        )
-        alpha.animateTo(
-            targetValue = 1.0f,
-            animationSpec = tween(durationMillis = 300)
-        )
+        withTimeoutOrNull(600) {
+            scale.animateTo(
+                targetValue = 1.0f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+            )
+            alpha.animateTo(
+                targetValue = 1.0f,
+                animationSpec = tween(durationMillis = 250)
+            )
+        }
         textVisible = true
-        delay(750) // Restrained, brief startup duration
+        delay(400) // Restrained, brief startup duration
         onSplashFinished()
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(NovaTheme.colors.background),
+            .background(NovaTheme.colors.background)
+            .clickable { onSplashFinished() },
         contentAlignment = Alignment.Center
     ) {
         Column(
