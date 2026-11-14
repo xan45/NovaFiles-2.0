@@ -5,12 +5,17 @@
 
 package com.novafiles.feature.video
 
-import androidx.activity.compose.BackHandler
 import android.app.Activity
 import android.app.PictureInPictureParams
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.pm.ActivityInfo
 import android.util.Rational
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,25 +38,38 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.BrightnessMedium
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.FitScreen
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -78,7 +96,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.novafiles.core.designsystem.theme.NovaTheme
@@ -86,7 +103,9 @@ import com.novafiles.core.ui.components.NovaBottomSheet
 
 @Composable
 fun VideoPlayerScreen(
-    videoFilePath: String,
+    videoFilePath: String = "",
+    playQueue: List<String> = emptyList(),
+    startIndex: Int = 0,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: VideoPlayerViewModel = viewModel()
@@ -94,15 +113,34 @@ fun VideoPlayerScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(videoFilePath) {
-        viewModel.loadVideo(videoFilePath)
+    LaunchedEffect(videoFilePath, playQueue, startIndex) {
+        val queue = if (playQueue.isNotEmpty()) playQueue else if (videoFilePath.isNotBlank()) listOf(videoFilePath) else emptyList()
+        if (queue.isNotEmpty()) {
+            viewModel.loadQueue(queue, startIndex)
+        }
+    }
+
+    // Orientation Handling
+    DisposableEffect(uiState.orientationPreference) {
+        val activity = context as? Activity
+        val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        when (uiState.orientationPreference) {
+            VideoOrientationPref.LANDSCAPE -> activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            VideoOrientationPref.PORTRAIT -> activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            VideoOrientationPref.AUTO -> activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
     }
 
     BackHandler {
-        if (uiState.showTechnicalDetailsSheet) {
-            viewModel.dismissTechnicalDetailsSheet()
-        } else {
-            onNavigateBack()
+        when {
+            uiState.showTechnicalDetailsSheet -> viewModel.dismissTechnicalDetailsSheet()
+            uiState.showSubtitlesDialog -> viewModel.toggleSubtitlesDialog(false)
+            uiState.showAudioTracksDialog -> viewModel.toggleAudioTracksDialog(false)
+            uiState.showSpeedDialog -> viewModel.toggleSpeedDialog(false)
+            else -> onNavigateBack()
         }
     }
 
@@ -134,7 +172,7 @@ fun VideoPlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Video Surface Layer (Independent layer)
+        // Video Surface Layer
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -275,7 +313,7 @@ fun VideoPlayerScreen(
                         .height(140.dp)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent)
+                                listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
                             )
                         )
                         .align(Alignment.TopCenter)
@@ -285,7 +323,7 @@ fun VideoPlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(190.dp)
                         .background(
                             Brush.verticalGradient(
                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
@@ -319,30 +357,51 @@ fun VideoPlayerScreen(
 
                     // Floating Upper-Right Controls
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val pipContext = LocalContext.current
+                        // Subtitles button
                         FrostedCircularButton(
-                            size = 44.dp,
-                            onClick = {
-                                (pipContext as? Activity)?.enterPictureInPictureMode(
-                                    PictureInPictureParams.Builder()
-                                        .setAspectRatio(Rational(16, 9))
-                                        .build()
-                                )
-                            }
+                            size = 40.dp,
+                            onClick = { viewModel.toggleSubtitlesDialog(true) }
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.PictureInPictureAlt,
-                                contentDescription = "Picture in Picture",
+                                imageVector = Icons.Rounded.ClosedCaption,
+                                contentDescription = "Subtitles",
+                                tint = if (uiState.availableSubtitles.any { it.isSelected && it.id != "none" }) NovaTheme.colors.primary else Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // Audio Track button
+                        FrostedCircularButton(
+                            size = 40.dp,
+                            onClick = { viewModel.toggleAudioTracksDialog(true) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Audiotrack,
+                                contentDescription = "Audio Track",
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
+
+                        // Orientation toggle
+                        FrostedCircularButton(
+                            size = 40.dp,
+                            onClick = { viewModel.toggleOrientationPreference() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ScreenRotation,
+                                contentDescription = "Orientation: ${uiState.orientationPreference.label}",
+                                tint = if (uiState.orientationPreference != VideoOrientationPref.AUTO) NovaTheme.colors.primary else Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
                         // Aspect ratio toggle
                         FrostedCircularButton(
-                            size = 44.dp,
+                            size = 40.dp,
                             onClick = { viewModel.cycleResizeMode() }
                         ) {
                             Icon(
@@ -363,42 +422,56 @@ fun VideoPlayerScreen(
                                 .clip(CircleShape)
                                 .background(Color(0x55000000))
                                 .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                                .clickable { viewModel.cyclePlaybackSpeed() }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .clickable { viewModel.toggleSpeedDialog(true) }
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "${uiState.playbackSpeed}x",
                                 color = Color.White,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
 
                         // 3-Dots Technical Info
                         FrostedCircularButton(
-                            size = 44.dp,
+                            size = 40.dp,
                             onClick = { viewModel.openTechnicalDetailsSheet() }
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.MoreVert,
+                                imageVector = Icons.Rounded.Info,
                                 contentDescription = "Technical Info",
                                 tint = Color.White,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
 
-                // Central Floating Controls (Rewind 10s, Play/Pause, Forward 10s)
+                // Central Floating Controls (Prev, Rewind 10s, Play/Pause, Forward 10s, Next)
                 Row(
                     modifier = Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Previous Video
+                    FrostedCircularButton(
+                        size = 48.dp,
+                        onClick = { viewModel.playPrevious() },
+                        enabled = uiState.hasPrevious
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipPrevious,
+                            contentDescription = "Previous video",
+                            tint = if (uiState.hasPrevious) Color.White else Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
                     // Rewind 10s
                     FrostedCircularButton(
-                        size = 54.dp,
+                        size = 52.dp,
                         onClick = { viewModel.seekRelative(-10) }
                     ) {
                         Icon(
@@ -409,7 +482,7 @@ fun VideoPlayerScreen(
                         )
                     }
 
-                    // Play/Pause Main Button (Dominant Frosted Glass Pill)
+                    // Play/Pause Main Button
                     FrostedCircularButton(
                         size = 72.dp,
                         borderAlpha = 0.45f,
@@ -426,7 +499,7 @@ fun VideoPlayerScreen(
 
                     // Forward 10s
                     FrostedCircularButton(
-                        size = 54.dp,
+                        size = 52.dp,
                         onClick = { viewModel.seekRelative(10) }
                     ) {
                         Icon(
@@ -434,6 +507,20 @@ fun VideoPlayerScreen(
                             contentDescription = "Forward 10 seconds",
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    // Next Video
+                    FrostedCircularButton(
+                        size = 48.dp,
+                        onClick = { viewModel.playNext() },
+                        enabled = uiState.hasNext
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "Next video",
+                            tint = if (uiState.hasNext) Color.White else Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
@@ -456,7 +543,7 @@ fun VideoPlayerScreen(
                             Text(
                                 text = uiState.title,
                                 color = Color.White,
-                                fontSize = 17.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -465,7 +552,7 @@ fun VideoPlayerScreen(
                             Text(
                                 text = uiState.subtitle,
                                 color = Color(0xFF94A3B8),
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -476,31 +563,23 @@ fun VideoPlayerScreen(
                         Text(
                             text = "${uiState.formattedCurrentTime} / ${uiState.formattedTotalTime}",
                             color = Color(0xFFE2E8F0),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Continuous Progress Scrubber
-                    var isUserScrubbing by remember { mutableStateOf(false) }
-                    var scrubPositionMs by remember { mutableFloatStateOf(0f) }
-
+                    // Progress Slider
                     Slider(
-                        value = if (isUserScrubbing) scrubPositionMs else uiState.currentPositionMs.toFloat(),
+                        value = uiState.currentPositionMs.toFloat(),
                         onValueChange = { newPos ->
-                            isUserScrubbing = true
-                            scrubPositionMs = newPos
-                        },
-                        onValueChangeFinished = {
-                            viewModel.seekTo(scrubPositionMs.toLong())
-                            isUserScrubbing = false
+                            viewModel.seekTo(newPos.toLong())
                         },
                         valueRange = 0f..uiState.durationMs.coerceAtLeast(1L).toFloat(),
                         colors = SliderDefaults.colors(
-                            thumbColor = Color.White,
-                            activeTrackColor = Color.White,
+                            thumbColor = NovaTheme.colors.primary,
+                            activeTrackColor = NovaTheme.colors.primary,
                             inactiveTrackColor = Color(0x40FFFFFF)
                         ),
                         modifier = Modifier
@@ -509,6 +588,35 @@ fun VideoPlayerScreen(
                     )
                 }
             }
+        }
+
+        // Subtitles Track Dialog
+        if (uiState.showSubtitlesDialog) {
+            TrackSelectionDialog(
+                title = "Subtitles",
+                options = uiState.availableSubtitles,
+                onSelect = { viewModel.selectSubtitleTrack(it) },
+                onDismiss = { viewModel.toggleSubtitlesDialog(false) }
+            )
+        }
+
+        // Audio Track Dialog
+        if (uiState.showAudioTracksDialog) {
+            TrackSelectionDialog(
+                title = "Audio Tracks",
+                options = uiState.availableAudioTracks,
+                onSelect = { viewModel.selectAudioTrack(it) },
+                onDismiss = { viewModel.toggleAudioTracksDialog(false) }
+            )
+        }
+
+        // Playback Speed Dialog
+        if (uiState.showSpeedDialog) {
+            SpeedSelectionDialog(
+                currentSpeed = uiState.playbackSpeed,
+                onSelectSpeed = { viewModel.setSpeed(it) },
+                onDismiss = { viewModel.toggleSpeedDialog(false) }
+            )
         }
 
         // Technical Details Bottom Sheet
@@ -529,21 +637,26 @@ fun VideoPlayerScreen(
                     val details = uiState.technicalDetails
                     if (details != null) {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             TechnicalDetailRow("File Name", details.fileName)
                             TechnicalDetailRow("Resolution", details.resolution)
-                            TechnicalDetailRow("Codec", details.codec)
-                            TechnicalDetailRow("Bitrate", details.videoBitrate)
+                            TechnicalDetailRow("Container", details.containerFormat)
+                            TechnicalDetailRow("Video Codec", details.videoCodec)
+                            TechnicalDetailRow("Audio Codec", details.audioCodec)
                             TechnicalDetailRow("Frame Rate", details.frameRate)
+                            TechnicalDetailRow("Bitrate", details.videoBitrate)
                             TechnicalDetailRow("Duration", details.formattedDuration)
                             TechnicalDetailRow("File Size", details.fileSizeFormatted)
+                            details.dateModifiedFormatted?.let {
+                                TechnicalDetailRow("Date Modified", it)
+                            }
                         }
                     } else {
                         Text(
                             text = "Analyzing video stream...",
                             color = NovaTheme.colors.textSecondary,
-                            style = NovaTheme.typography.bodyMedium,
+                            style = NovaTheme.typography.body,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                     }
@@ -558,6 +671,7 @@ private fun FrostedCircularButton(
     size: androidx.compose.ui.unit.Dp,
     borderAlpha: Float = 0.25f,
     bgAlpha: Float = 0.35f,
+    enabled: Boolean = true,
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
@@ -565,9 +679,9 @@ private fun FrostedCircularButton(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = bgAlpha))
-            .border(1.dp, Color.White.copy(alpha = borderAlpha), CircleShape)
-            .clickable(onClick = onClick),
+            .background(Color.Black.copy(alpha = if (enabled) bgAlpha else bgAlpha * 0.5f))
+            .border(1.dp, Color.White.copy(alpha = if (enabled) borderAlpha else borderAlpha * 0.3f), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         content()
@@ -584,14 +698,131 @@ private fun TechnicalDetailRow(label: String, value: String) {
         Text(
             text = label,
             color = NovaTheme.colors.textSecondary,
-            style = NovaTheme.typography.bodyMedium
+            style = NovaTheme.typography.caption
         )
         Text(
             text = value,
             color = NovaTheme.colors.textPrimary,
-            style = NovaTheme.typography.title,
-            fontWeight = FontWeight.SemiBold
+            style = NovaTheme.typography.body,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun TrackSelectionDialog(
+    title: String,
+    options: List<VideoTrackOption>,
+    onSelect: (VideoTrackOption) -> Unit,
+    onDismiss: () -> Unit
+) {
+    NovaBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Text(
+                text = title,
+                style = NovaTheme.typography.title,
+                fontWeight = FontWeight.Bold,
+                color = NovaTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (options.isEmpty()) {
+                Text(
+                    text = "No tracks available",
+                    color = NovaTheme.colors.textTertiary,
+                    style = NovaTheme.typography.body,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(options) { track ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(track) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = track.label,
+                                style = NovaTheme.typography.body,
+                                color = if (track.isSelected) NovaTheme.colors.primary else NovaTheme.colors.textPrimary,
+                                fontWeight = if (track.isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (track.isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = "Selected",
+                                    tint = NovaTheme.colors.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeedSelectionDialog(
+    currentSpeed: Float,
+    onSelectSpeed: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+    NovaBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Text(
+                text = "Playback Speed",
+                style = NovaTheme.typography.title,
+                fontWeight = FontWeight.Bold,
+                color = NovaTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                items(speeds) { speed ->
+                    val isSelected = currentSpeed == speed
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectSpeed(speed) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (speed == 1.0f) "1.0x (Normal)" else "${speed}x",
+                            style = NovaTheme.typography.body,
+                            color = if (isSelected) NovaTheme.colors.primary else NovaTheme.colors.textPrimary,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = "Selected",
+                                tint = NovaTheme.colors.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -104,11 +104,14 @@ import com.novafiles.feature.music.NovaMiniMusicPlayer
 import com.novafiles.feature.settings.AboutScreen
 import com.novafiles.feature.settings.SettingsScreen
 import com.novafiles.feature.vault.VaultScreen
+import com.novafiles.feature.video.VideoLibraryScreen
+import com.novafiles.feature.video.VideoLibraryViewModel
 import com.novafiles.feature.video.VideoPlayerScreen
 import java.io.File
 
 sealed interface ActiveScreen : java.io.Serializable {
-    data class Video(val filePath: String) : ActiveScreen
+    data class Video(val filePath: String, val queue: List<String> = emptyList(), val startIndex: Int = 0) : ActiveScreen
+    data object VideoLibrary : ActiveScreen
     data object Music : ActiveScreen
     data class Gallery(val album: String? = null) : ActiveScreen
     data object StorageAnalyzer : ActiveScreen
@@ -120,7 +123,8 @@ sealed interface ActiveScreen : java.io.Serializable {
 }
 
 private fun serializeActiveScreen(screen: ActiveScreen): List<String> = when (screen) {
-    is ActiveScreen.Video -> listOf("Video", screen.filePath)
+    is ActiveScreen.Video -> listOf("Video", screen.filePath, screen.queue.joinToString("|"), screen.startIndex.toString())
+    is ActiveScreen.VideoLibrary -> listOf("VideoLibrary")
     is ActiveScreen.Music -> listOf("Music")
     is ActiveScreen.Gallery -> listOf("Gallery", screen.album ?: "")
     is ActiveScreen.StorageAnalyzer -> listOf("StorageAnalyzer")
@@ -134,7 +138,14 @@ private fun serializeActiveScreen(screen: ActiveScreen): List<String> = when (sc
 private fun deserializeActiveScreen(list: List<*>): ActiveScreen? {
     val type = list.getOrNull(0) as? String ?: return null
     return when (type) {
-        "Video" -> ActiveScreen.Video(list.getOrNull(1) as? String ?: "")
+        "Video" -> {
+            val path = list.getOrNull(1) as? String ?: ""
+            val queueStr = list.getOrNull(2) as? String ?: ""
+            val queue = if (queueStr.isNotEmpty()) queueStr.split("|") else emptyList()
+            val startIdx = (list.getOrNull(3) as? String)?.toIntOrNull() ?: 0
+            ActiveScreen.Video(path, queue, startIdx)
+        }
+        "VideoLibrary" -> ActiveScreen.VideoLibrary
         "Music" -> ActiveScreen.Music
         "Gallery" -> ActiveScreen.Gallery((list.getOrNull(1) as? String)?.takeIf { it.isNotEmpty() })
         "StorageAnalyzer" -> ActiveScreen.StorageAnalyzer
@@ -218,6 +229,14 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    private val videoLibraryViewModel: VideoLibraryViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                VideoLibraryViewModel(application = application)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -238,6 +257,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         musicViewModel = musicViewModel,
                         storageAnalyzerViewModel = storageAnalyzerViewModel,
                         galleryViewModel = galleryViewModel,
+                        videoLibraryViewModel = videoLibraryViewModel,
                         themeConfig = themeConfig,
                         onThemeConfigChange = { settingsRepo.updateThemeConfig(it) },
                         fileRepository = fileRepository
@@ -255,6 +275,7 @@ fun NovaFilesMainApp(
     musicViewModel: MusicPlayerViewModel,
     storageAnalyzerViewModel: StorageAnalyzerViewModel,
     galleryViewModel: GalleryViewModel,
+    videoLibraryViewModel: VideoLibraryViewModel,
     themeConfig: ThemeConfig,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     fileRepository: FileRepositoryImpl,
@@ -275,6 +296,7 @@ fun NovaFilesMainApp(
                     if (granted) {
                         filesViewModel.loadDirectory(filesViewModel.uiState.value.currentPath)
                         musicViewModel.loadMusicLibrary(forceRefresh = true)
+                        videoLibraryViewModel.loadVideoLibrary()
                     }
                 }
             }
@@ -348,9 +370,24 @@ fun NovaFilesMainApp(
     val currentScreen = activeScreenStack.lastOrNull()
     if (currentScreen != null) {
         when (currentScreen) {
+            is ActiveScreen.VideoLibrary -> {
+                VideoLibraryScreen(
+                    viewModel = videoLibraryViewModel,
+                    onNavigateBack = { navigateBack() },
+                    onPlayVideo = { path ->
+                        navigateTo(ActiveScreen.Video(filePath = path))
+                    },
+                    onPlayQueue = { queue, idx ->
+                        val path = queue.getOrNull(idx) ?: ""
+                        navigateTo(ActiveScreen.Video(filePath = path, queue = queue, startIndex = idx))
+                    }
+                )
+            }
             is ActiveScreen.Video -> {
                 VideoPlayerScreen(
                     videoFilePath = currentScreen.filePath,
+                    playQueue = currentScreen.queue,
+                    startIndex = currentScreen.startIndex,
                     onNavigateBack = { navigateBack() }
                 )
             }
@@ -501,9 +538,8 @@ fun NovaFilesMainApp(
                                 navigateTo(ActiveScreen.Music)
                             }
                             "Videos" -> {
-                                val targetDir = File(Environment.getExternalStorageDirectory(), "Movies").absolutePath
-                                filesViewModel.loadDirectory(targetDir)
-                                selectedTab = NovaNavTab.FILES
+                                videoLibraryViewModel.loadVideoLibrary()
+                                navigateTo(ActiveScreen.VideoLibrary)
                             }
                             "Documents" -> {
                                 val targetDir = File(Environment.getExternalStorageDirectory(), "Documents").absolutePath

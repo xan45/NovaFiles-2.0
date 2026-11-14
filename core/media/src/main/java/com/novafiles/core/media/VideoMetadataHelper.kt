@@ -19,7 +19,13 @@ data class VideoTechnicalDetails(
     val frameRate: String,
     val durationMs: Long,
     val formattedDuration: String,
-    val fileSizeFormatted: String
+    val fileSizeFormatted: String,
+    val videoCodec: String = codec,
+    val audioCodec: String = "AAC / Audio Track",
+    val containerFormat: String = "MP4",
+    val dateAddedFormatted: String? = null,
+    val dateModifiedFormatted: String? = null,
+    val filePath: String = ""
 )
 
 object VideoMetadataHelper {
@@ -104,6 +110,25 @@ object VideoMetadataHelper {
         val sizeMb = videoFile.length().toDouble() / (1024.0 * 1024.0)
         val fileSizeFormatted = String.format(Locale.US, "%.1f MB", sizeMb)
 
+        val containerFormat = videoFile.extension.uppercase().takeIf { it.isNotBlank() } ?: "MP4"
+        val hasAudio = try { retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) } catch (_: Exception) { null }
+        val audioCodec = if (hasAudio == "yes") {
+            when {
+                containerFormat == "MKV" -> "Opus / Vorbis / AAC"
+                containerFormat == "WEBM" -> "Opus / Vorbis"
+                containerFormat == "MP4" -> "AAC / ALAC"
+                else -> "Standard Audio Track"
+            }
+        } else if (hasAudio == "no") {
+            "No Audio Track"
+        } else {
+            "Audio Track"
+        }
+
+        val dateModifiedFormatted = try {
+            java.text.SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(java.util.Date(videoFile.lastModified()))
+        } catch (_: Exception) { null }
+
         VideoTechnicalDetails(
             fileName = videoFile.name,
             resolution = "$resolution ($aspectRatio)",
@@ -113,7 +138,12 @@ object VideoMetadataHelper {
             frameRate = formattedFrameRate,
             durationMs = durationMs,
             formattedDuration = formattedDuration,
-            fileSizeFormatted = fileSizeFormatted
+            fileSizeFormatted = fileSizeFormatted,
+            videoCodec = codecName,
+            audioCodec = audioCodec,
+            containerFormat = containerFormat,
+            dateModifiedFormatted = dateModifiedFormatted,
+            filePath = videoFile.absolutePath
         )
     }
 

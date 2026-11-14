@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.media.AudioManager
 import android.net.Uri
-import android.view.WindowManager
 import androidx.annotation.OptIn
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +12,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -28,6 +30,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
+
+data class VideoTrackOption(
+    val id: String,
+    val label: String,
+    val isSelected: Boolean,
+    val groupIndex: Int = 0,
+    val trackIndex: Int = 0
+)
 
 data class VideoPlayerUiState(
     val filePath: String = "",
@@ -47,11 +57,21 @@ data class VideoPlayerUiState(
     val seekPreviewOffsetSec: Int = 0,
     val isSeekOverlayVisible: Boolean = false,
     val showTechnicalDetailsSheet: Boolean = false,
-    val technicalDetails: VideoTechnicalDetails? = null
+    val technicalDetails: VideoTechnicalDetails? = null,
+    val playQueue: List<String> = emptyList(),
+    val currentIndex: Int = 0,
+    val availableSubtitles: List<VideoTrackOption> = emptyList(),
+    val availableAudioTracks: List<VideoTrackOption> = emptyList(),
+    val showSubtitlesDialog: Boolean = false,
+    val showAudioTracksDialog: Boolean = false,
+    val showSpeedDialog: Boolean = false,
+    val orientationPreference: VideoOrientationPref = VideoOrientationPref.AUTO
 ) {
     val progressFraction: Float get() = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
     val formattedCurrentTime: String get() = formatTime(currentPositionMs)
     val formattedTotalTime: String get() = formatTime(durationMs)
+    val hasPrevious: Boolean get() = currentIndex > 0
+    val hasNext: Boolean get() = currentIndex < playQueue.size - 1
 
     private fun formatTime(ms: Long): String {
         val totalSec = ms / 1000
@@ -67,7 +87,10 @@ data class VideoPlayerUiState(
 }
 
 @OptIn(UnstableApi::class)
-class VideoPlayerViewModel(application: Application) : AndroidViewModel(application) {
+class VideoPlayerViewModel @JvmOverloads constructor(
+    application: Application,
+    private val preferencesRepo: VideoPreferencesRepository = VideoPreferencesRepository(application)
+) : AndroidViewModel(application) {
 
     private val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
@@ -86,6 +109,16 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
         val volPercent = if (maxVol > 0) ((curVol.toFloat() / maxVol.toFloat()) * 100).toInt() else 50
         _uiState.update { it.copy(volumePercent = volPercent) }
 
+        // Observe initial preferences
+        val prefs = preferencesRepo.preferences.value
+        _uiState.update {
+            it.copy(
+                playbackSpeed = prefs.defaultPlaybackSpeed,
+                orientationPreference = prefs.orientationPreference
+            )
+        }
+        player.playbackParameters = PlaybackParameters(prefs.defaultPlaybackSpeed)
+
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _uiState.update { it.copy(isPlaying = isPlaying) }
@@ -95,6 +128,7 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 } else {
                     stopProgressTracking()
                     showControls()
+                    saveCurrentPosition()
                 }
             }
 
@@ -106,17 +140,36 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0L)
                         )
                     }
+                    updateTracks()
+                } else if (playbackState == Player.STATE_ENDED) {
+                    saveCurrentPosition()
+                    if (_uiState.value.hasNext) {
+                        playNext()
+                    }
                 }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                updateTracks()
             }
         })
     }
 
     fun loadVideo(filePath: String) {
-        if (_uiState.value.filePath == filePath && player.playbackState != Player.STATE_IDLE) {
-            // Video is already initialized and playing, preserve position during orientation/configuration change
+        loadQueue(listOf(filePath), startIndex = 0)
+    }
+
+    fun loadQueue(queue: List<String>, startIndex: Int = 0) {
+        if (queue.isEmpty()) return
+        val validIndex = startIndex.coerceIn(0, queue.size - 1)
+        val targetPath = queue[validIndex]
+
+        if (_uiState.value.filePath == targetPath && player.playbackState != Player.STATE_IDLE) {
+            // Already active and playing
             return
         }
-        val file = File(filePath)
+
+        val file = File(targetPath)
         if (!file.exists()) return
 
         val title = file.nameWithoutExtension
@@ -124,9 +177,11 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
         _uiState.update {
             it.copy(
-                filePath = filePath,
+                filePath = targetPath,
                 title = title,
                 subtitle = subtitle,
+                playQueue = queue,
+                currentIndex = validIndex,
                 areControlsVisible = true
             )
         }
@@ -141,12 +196,22 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     .build()
             } else null
         }
+
         val mediaItem = MediaItem.Builder()
             .setUri(Uri.fromFile(file))
             .setSubtitleConfigurations(subConfigs)
             .build()
+
         player.setMediaItem(mediaItem)
         player.prepare()
+
+        // Check resume position
+        val savedPos = preferencesRepo.getPlaybackPosition(targetPath)
+        if (savedPos > 2000L) {
+            player.seekTo(savedPos)
+            _uiState.update { it.copy(currentPositionMs = savedPos) }
+        }
+
         player.playWhenReady = true
 
         viewModelScope.launch {
@@ -155,6 +220,152 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
 
         scheduleControlsAutoHide()
+    }
+
+    fun playNext() {
+        val state = _uiState.value
+        if (state.hasNext) {
+            saveCurrentPosition()
+            val nextIdx = state.currentIndex + 1
+            loadQueue(state.playQueue, nextIdx)
+        }
+    }
+
+    fun playPrevious() {
+        val state = _uiState.value
+        if (state.hasPrevious) {
+            saveCurrentPosition()
+            val prevIdx = state.currentIndex - 1
+            loadQueue(state.playQueue, prevIdx)
+        }
+    }
+
+    private fun saveCurrentPosition() {
+        val path = _uiState.value.filePath
+        val pos = player.currentPosition
+        val dur = player.duration
+        if (path.isNotBlank() && dur > 0) {
+            viewModelScope.launch {
+                preferencesRepo.savePlaybackPosition(path, pos, dur)
+            }
+        }
+    }
+
+    private fun updateTracks() {
+        val tracks = player.currentTracks
+        val subtitleOptions = mutableListOf<VideoTrackOption>()
+        val audioOptions = mutableListOf<VideoTrackOption>()
+
+        // "Off" option for subtitles
+        val isSubDisabled = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+        subtitleOptions.add(VideoTrackOption(id = "none", label = "Off (Subtitles Disabled)", isSelected = isSubDisabled))
+
+        for (groupIndex in 0 until tracks.groups.size) {
+            val group = tracks.groups[groupIndex]
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val isSelected = !isSubDisabled && group.isTrackSelected(trackIndex)
+                    val lang = format.language ?: "und"
+                    val label = format.label ?: "Track ${trackIndex + 1} ($lang)"
+                    subtitleOptions.add(
+                        VideoTrackOption(
+                            id = "$groupIndex:$trackIndex",
+                            label = label,
+                            isSelected = isSelected,
+                            groupIndex = groupIndex,
+                            trackIndex = trackIndex
+                        )
+                    )
+                }
+            } else if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val isSelected = group.isTrackSelected(trackIndex)
+                    val lang = format.language ?: "und"
+                    val label = format.label ?: "Audio ${trackIndex + 1} ($lang)"
+                    audioOptions.add(
+                        VideoTrackOption(
+                            id = "$groupIndex:$trackIndex",
+                            label = label,
+                            isSelected = isSelected,
+                            groupIndex = groupIndex,
+                            trackIndex = trackIndex
+                        )
+                    )
+                }
+            }
+        }
+
+        _uiState.update {
+            it.copy(
+                availableSubtitles = subtitleOptions,
+                availableAudioTracks = audioOptions
+            )
+        }
+    }
+
+    fun selectSubtitleTrack(track: VideoTrackOption) {
+        if (track.id == "none") {
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+        } else {
+            val tracks = player.currentTracks
+            if (track.groupIndex < tracks.groups.size) {
+                val group = tracks.groups[track.groupIndex].mediaTrackGroup
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .setOverrideForType(TrackSelectionOverride(group, listOf(track.trackIndex)))
+                    .build()
+            }
+        }
+        _uiState.update { it.copy(showSubtitlesDialog = false) }
+    }
+
+    fun selectAudioTrack(track: VideoTrackOption) {
+        val tracks = player.currentTracks
+        if (track.groupIndex < tracks.groups.size) {
+            val group = tracks.groups[track.groupIndex].mediaTrackGroup
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setOverrideForType(TrackSelectionOverride(group, listOf(track.trackIndex)))
+                .build()
+        }
+        _uiState.update { it.copy(showAudioTracksDialog = false) }
+    }
+
+    fun setSpeed(speed: Float) {
+        player.playbackParameters = PlaybackParameters(speed)
+        _uiState.update { it.copy(playbackSpeed = speed, showSpeedDialog = false) }
+        viewModelScope.launch {
+            preferencesRepo.updateDefaultPlaybackSpeed(speed)
+        }
+        resetControlsTimeout()
+    }
+
+    fun toggleSubtitlesDialog(show: Boolean) {
+        _uiState.update { it.copy(showSubtitlesDialog = show) }
+    }
+
+    fun toggleAudioTracksDialog(show: Boolean) {
+        _uiState.update { it.copy(showAudioTracksDialog = show) }
+    }
+
+    fun toggleSpeedDialog(show: Boolean) {
+        _uiState.update { it.copy(showSpeedDialog = show) }
+    }
+
+    fun toggleOrientationPreference() {
+        val current = _uiState.value.orientationPreference
+        val next = when (current) {
+            VideoOrientationPref.AUTO -> VideoOrientationPref.LANDSCAPE
+            VideoOrientationPref.LANDSCAPE -> VideoOrientationPref.PORTRAIT
+            VideoOrientationPref.PORTRAIT -> VideoOrientationPref.AUTO
+        }
+        _uiState.update { it.copy(orientationPreference = next) }
+        viewModelScope.launch {
+            preferencesRepo.updateOrientationPreference(next)
+        }
     }
 
     fun togglePlayPause() {
@@ -169,6 +380,7 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun seekTo(positionMs: Long) {
         player.seekTo(positionMs)
         _uiState.update { it.copy(currentPositionMs = positionMs) }
+        saveCurrentPosition()
         resetControlsTimeout()
     }
 
@@ -176,6 +388,7 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
         val target = (player.currentPosition + (offsetSec * 1000L)).coerceIn(0L, player.duration.coerceAtLeast(0L))
         player.seekTo(target)
         _uiState.update { it.copy(currentPositionMs = target) }
+        saveCurrentPosition()
         resetControlsTimeout()
     }
 
@@ -221,16 +434,6 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
         _uiState.update { it.copy(resizeMode = next) }
-        resetControlsTimeout()
-    }
-
-    fun cyclePlaybackSpeed() {
-        val speeds = listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
-        val currentSpeed = _uiState.value.playbackSpeed
-        val nextIdx = (speeds.indexOf(currentSpeed) + 1) % speeds.size
-        val nextSpeed = speeds[nextIdx]
-        player.playbackParameters = PlaybackParameters(nextSpeed)
-        _uiState.update { it.copy(playbackSpeed = nextSpeed) }
         resetControlsTimeout()
     }
 
@@ -329,6 +532,7 @@ class VideoPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     override fun onCleared() {
+        saveCurrentPosition()
         stopProgressTracking()
         autoHideControlsJob?.cancel()
         overlayHideJob?.cancel()
